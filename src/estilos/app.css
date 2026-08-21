@@ -1,0 +1,196 @@
+@import 'tailwindcss';
+
+/* ---------------------------------------------------------------------------
+   GRISOMAQ CONTROLE - tema
+   Projetado para tela de celular sob sol forte, operada com luva e mao suja.
+   Nenhuma fonte externa: o app precisa abrir identico sem rede.
+   --------------------------------------------------------------------------- */
+
+@theme {
+  --font-sans:
+    system-ui, -apple-system, 'Segoe UI Variable Text', 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', Menlo, monospace;
+
+  /* Verde GrisoMaq: escuro o bastante para vencer o reflexo do sol. */
+  --color-marca-50: #eef5f1;
+  --color-marca-100: #d3e5db;
+  --color-marca-200: #a7ccb8;
+  --color-marca-300: #6ba98d;
+  --color-marca-400: #3d8564;
+  --color-marca-500: #2a6a4d;
+  --color-marca-600: #1f362c;
+  --color-marca-700: #17291f;
+  --color-marca-800: #101c16;
+  --color-marca-900: #0a120e;
+
+  /* Carmim do "No 6901" impresso no bloco carbonado. E a cor da IDENTIDADE de
+     um documento, nao um enfeite: aparece no numero da ficha e em bloqueio,
+     em mais lugar nenhum. O operador ja le vermelho como "numero da via". */
+  --color-carbono-500: #c8102e;
+  --color-carbono-700: #8f0b20;
+  --color-carbono-50: #fdf0f2;
+
+  /* Semanticas de estado. Nunca usadas sozinhas: sempre com icone e texto,
+     porque daltonismo em campo e comum e ninguem faz teste admissional pra isso. */
+  --color-ok-500: #15803d;
+  --color-ok-100: #dcfce7;
+  --color-aviso-500: #b45309;
+  --color-aviso-100: #fef3c7;
+  --color-erro-500: #b91c1c;
+  --color-erro-100: #fee2e2;
+  --color-info-500: #1d4ed8;
+  --color-info-100: #dbeafe;
+
+  /* Alvos de toque. Sao tokens, nao numeros soltos, para o valor minimo
+     ser auditavel num lugar so. */
+  --espaco-toque-min: 3.5rem; /* 56px - qualquer coisa clicavel */
+  --espaco-toque-primario: 4rem; /* 64px - acao principal da tela */
+  --espaco-tecla: 4.5rem; /* 72px - teclado numerico proprio */
+
+  --radius-campo: 0.625rem;
+  --radius-cartao: 0.875rem;
+}
+
+/* --- Modo sol (padrao) e modo normal ------------------------------------- */
+
+:root {
+  --cor-fundo: #ffffff;
+  --cor-superficie: #f4f6f5;
+  --cor-superficie-alta: #ffffff;
+  --cor-texto: #0a120e;
+  --cor-texto-suave: #3f4a44;
+  --cor-borda: #b8c2bc;
+  --cor-borda-forte: #0a120e;
+  --peso-rotulo: 700;
+  --tamanho-base: 18px;
+}
+
+/* O escritorio (admin, desktop) pode respirar: menos peso, mais densidade. */
+:root[data-modo='escritorio'] {
+  --cor-superficie: #f8faf9;
+  --cor-borda: #d6ddd9;
+  --cor-borda-forte: #6b7770;
+  --cor-texto-suave: #56605a;
+  --peso-rotulo: 600;
+  --tamanho-base: 15px;
+}
+
+html {
+  font-size: var(--tamanho-base);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--cor-fundo);
+  color: var(--cor-texto);
+  font-family: var(--font-sans);
+  font-synthesis-weight: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  /* Sem selecao acidental ao arrastar o dedo em cima de um botao. */
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+/* Campos de texto continuam selecionaveis - a regra acima e so pra UI. */
+input,
+textarea,
+[contenteditable] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Respeita a area segura do iPhone (notch e barra inferior). */
+.area-segura-inferior {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+.area-segura-superior {
+  padding-top: max(0.5rem, env(safe-area-inset-top));
+}
+
+/* Foco visivel e grosso: sob sol, um contorno de 1px nao existe. */
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid var(--color-info-500);
+  outline-offset: 2px;
+}
+
+/* --- A pauta ---------------------------------------------------------------
+   A ficha de papel e uma grade de celulas pautadas, nao uma pilha de cartoes
+   flutuando sobre cinza. Cada campo e uma linha sangrada de ponta a ponta,
+   separada por regua. A linha inteira e o alvo de toque.
+   --------------------------------------------------------------------------- */
+
+.pauta {
+  border-top: 2px solid var(--cor-borda-forte);
+}
+
+.linha-ficha {
+  display: block;
+  width: 100%;
+  min-height: var(--espaco-toque-min);
+  padding: 0.625rem 1rem 0.75rem;
+  border-bottom: 2px solid var(--cor-borda-forte);
+  background: var(--cor-superficie-alta);
+  text-align: left;
+}
+
+/* Regua interna fina, para subdividir sem competir com a pauta principal. */
+.linha-ficha + .linha-ficha--filha {
+  border-top: 1px solid var(--cor-borda);
+}
+
+/* O rotulo e o andaime: pequeno, espacado, discreto. */
+.rotulo-campo {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: var(--peso-rotulo);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--cor-texto-suave);
+  line-height: 1.2;
+}
+
+/* Numeros de leitura (horimetro, odometro, litros) alinham em coluna
+   quando tabulares - erro de digitacao salta aos olhos. */
+.numerico {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+
+/* O valor e o conteudo: monoespacado como o contador mecanico de onde ele foi
+   copiado, e grande o bastante para conferir de relance. */
+.valor-leitura {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.875rem;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: var(--cor-texto);
+}
+
+.valor-leitura--vazio {
+  color: var(--cor-borda);
+}
+
+/* Numero do documento: o carmim do bloco carbonado. */
+.numero-documento {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--color-carbono-500);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
