@@ -89,11 +89,11 @@ export function AbastecimentoForm() {
 
   const operador = funcionarios.find((f) => f.id === r.operador_funcionario_id) ?? null
 
-  async function salvar() {
+  async function salvar(pinDoAceite: string) {
     if (!r || !diagnostico?.podeSalvar) return
     setSalvando(true)
     try {
-      await salvarAbastecimento(r, sessao)
+      await salvarAbastecimento(r, sessao, pinDoAceite)
       toast.success('Salvo no celular. Será enviado quando houver sinal.')
       navegar('/abastecimento')
     } catch (erro) {
@@ -271,7 +271,7 @@ export function AbastecimentoForm() {
           })}
           onConfirmar={async (pin) => {
             await conferirPinLocal(r!.operador_funcionario_id!, pin)
-            await salvar()
+            await salvar(pin)
           }}
           onCancelar={() => setAssinando(false)}
         />

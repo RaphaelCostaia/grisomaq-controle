@@ -1,8 +1,8 @@
 import { AlertTriangle, Check, CloudOff, RefreshCw } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
+import { useNavigate } from 'react-router'
 import { lancamentosPendentes } from '@/dados/db'
 import { useEstadoSync } from '@/dados/sincronizacao/estado'
-import { sincronizarAgora } from '@/dados/sincronizacao/motor'
 import { horaDe } from '@/utilitarios/datas'
 import { cls } from '@/utilitarios/classes'
 
@@ -14,6 +14,7 @@ import { cls } from '@/utilitarios/classes'
  * desta operação. Vermelho fica reservado para o que exige ação humana.
  */
 export function BarraSync() {
+  const navegar = useNavigate()
   const { situacao, ultimoSyncOk, ultimoErro } = useEstadoSync()
 
   // A contagem vem da FILA, não do estado em memória do motor. O motor só
@@ -32,7 +33,10 @@ export function BarraSync() {
   return (
     <button
       type="button"
-      onClick={() => void sincronizarAgora()}
+      // Leva para a tela de envio em vez de tentar sincronizar aqui: a
+      // sincronização já acontece sozinha, e o que o operador precisa quando
+      // olha para esta barra é ver O QUE está parado.
+      onClick={() => navegar('/pendencias')}
       className={cls(
         'area-segura-superior flex w-full items-center gap-2.5 border-b-2 px-4 py-2.5 text-left',
         aparencia,

@@ -3,6 +3,7 @@ import { useAutenticacao } from '@/autenticacao/contexto'
 import { Entrar } from '@/telas/campo/Entrar'
 import { Abastecimentos } from '@/telas/campo/Abastecimentos'
 import { AbastecimentoForm } from '@/telas/campo/AbastecimentoForm'
+import { Pendencias } from '@/telas/campo/Pendencias'
 
 export function Rotas() {
   const { sessao, carregando } = useAutenticacao()
@@ -25,6 +26,7 @@ export function Rotas() {
       <Route path="/" element={<Navigate to="/abastecimento" replace />} />
       <Route path="/abastecimento" element={<Abastecimentos />} />
       <Route path="/abastecimento/novo" element={<AbastecimentoForm />} />
+      <Route path="/pendencias" element={<Pendencias />} />
       <Route path="*" element={<Navigate to="/abastecimento" replace />} />
     </Routes>
   )

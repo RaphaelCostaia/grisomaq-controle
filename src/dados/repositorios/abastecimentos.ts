@@ -4,6 +4,7 @@ import { sincronizarSePuder } from '../sincronizacao/motor'
 import type { Abastecimento, UltimaLeitura } from '@/dominio/tipos'
 import type { ContextoAbastecimento, RascunhoAbastecimento } from '@/dominio/abastecimento/regras'
 import { mesclarParametros, PARAMETROS_PADRAO } from '@/dominio/parametros'
+import { cifrarPin } from '@/autenticacao/pin-cifrado'
 import { hashDocumento, novoId } from '@/utilitarios/id'
 import { idDoDispositivo, versaoDoApp } from '@/utilitarios/dispositivo'
 import { hojeOperacional, horaDe, instanteDe } from '@/utilitarios/datas'
@@ -138,6 +139,8 @@ async function agoraDoServidor(): Promise<Date> {
 export async function salvarAbastecimento(
   rascunho: RascunhoAbastecimento,
   sessao: SessaoCampo,
+  /** PIN do operador, para a revalidação no servidor. Nunca é gravado em claro. */
+  pinDoAceite?: string,
 ): Promise<Abastecimento> {
   const agora = new Date().toISOString()
   const momento = instanteDe(rascunho.data, rascunho.hora).toISOString()
@@ -197,6 +200,8 @@ export async function salvarAbastecimento(
     _sync: 'pendente' as const,
   }
 
+  const pinCifrado = pinDoAceite ? await cifrarPin(pinDoAceite) : null
+
   await db.transaction('rw', [db.abastecimentos, db.assinaturas_aceite, db.outbox], async () => {
     await db.abastecimentos.put(registro)
     await db.assinaturas_aceite.put(assinatura)
@@ -211,6 +216,7 @@ export async function salvarAbastecimento(
       registro_id: assinatura.id,
       tipo: 'inserir',
       payload: semMarcasLocais(assinatura),
+      ...(pinCifrado ? { pin_cifrado: pinCifrado } : {}),
     })
   })
 

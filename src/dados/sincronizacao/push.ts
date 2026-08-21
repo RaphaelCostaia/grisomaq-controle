@@ -68,6 +68,9 @@ export async function enviarLote(): Promise<SaidaPush> {
   const porOpId = new Map(resposta.resultados.map((r) => [r.op_id, r]))
   let aplicadas = 0
   let conflitos = 0
+  // Capturado ANTES de concluir: `concluir` apaga o item da fila, e com ele o
+  // PIN cifrado que a revalidação precisa.
+  const paraRevalidar: Array<{ assinatura_id: string; pin_cifrado: string }> = []
 
   for (const item of lote) {
     const resultado = porOpId.get(item.op_id)
@@ -86,6 +89,9 @@ export async function enviarLote(): Promise<SaidaPush> {
       case 'aplicada':
       case 'duplicada':
         aplicadas++
+        if (item.tabela === 'assinaturas_aceite' && item.pin_cifrado) {
+          paraRevalidar.push({ assinatura_id: item.registro_id, pin_cifrado: item.pin_cifrado })
+        }
         await concluir(item, 'sincronizado')
         break
 
@@ -100,11 +106,40 @@ export async function enviarLote(): Promise<SaidaPush> {
     }
   }
 
+  await revalidarAssinaturas(paraRevalidar)
+
   // O relogio do celular e comparado com o do servidor a cada push. Hora errada
   // corrompe permanencia de caminhao e horario de abastecimento em silencio.
   const desvioRelogioMs = enviadoEm - new Date(resposta.servidor_agora).getTime()
 
   return { enviadas: lote.length, aplicadas, conflitos, desvioRelogioMs, versaoObsoleta: false, erro: null }
+}
+
+/**
+ * Pede ao servidor que confira os PINs dos aceites que acabaram de subir.
+ *
+ * Falhar aqui nao e grave e nao volta para a fila: a assinatura ja esta gravada
+ * e continua marcada como pendente de revalidacao. O painel do escritorio lista
+ * as pendentes, e a proxima subida tenta de novo.
+ */
+async function revalidarAssinaturas(
+  assinaturas: Array<{ assinatura_id: string; pin_cifrado: string }>,
+): Promise<void> {
+  if (assinaturas.length === 0) return
+
+  try {
+    const { data } = await supabase.functions.invoke<{
+      resultados: Array<{ assinatura_id: string; validacao: string }>
+    }>('verificar-assinaturas', { body: { assinaturas } })
+
+    for (const r of data?.resultados ?? []) {
+      if (r.validacao === 'validado_servidor' || r.validacao === 'invalida') {
+        await db.assinaturas_aceite.update(r.assinatura_id, { validacao_pin: r.validacao })
+      }
+    }
+  } catch {
+    // Sem rede no meio do lote: fica para a proxima janela de sinal.
+  }
 }
 
 function paraOperacao(i: ItemOutbox) {
