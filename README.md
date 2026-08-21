@@ -6,7 +6,7 @@ PWA offline-first que substitui as três fichas de campo da GrisoMaq Serviços A
 |---|---|---|
 | Abastecimento | Bloco de papel carbonado numerado (ex.: nº 6901) | **Funcional offline** — lança, valida, assina e enfileira |
 | Caminhões | `CONTROLE DE CAMINHÕES.xlsx` | **Funcional offline** — pátio ao vivo, chegada e saída |
-| Apontamento | `FICHA_APONTAMENTO.xlsx` | Esquema pronto |
+| Apontamento | `FICHA_APONTAMENTO.xlsx` | **Funcional offline** — grade, assinaturas e fechamento |
 
 O preenchimento é feito **pelo funcionário, no campo, pelo celular**, com sinal
 intermitente. O escritório consolida num painel e exporta nos layouts originais.
@@ -54,6 +54,12 @@ rodotrem que ainda está no campo.
 
 A permanência é o número que a planilha nunca pôde mostrar: no papel ela só
 existiria se alguém subtraísse trezentas linhas à mão.
+
+No **apontamento**, abrir a ficha do turno, lançar cada funcionário com frota e
+leituras, colher as assinaturas no modo “passa o celular” e fechar. O seletor de
+turno só oferece os turnos da escala daquela frente — algumas rodam 2 turnos,
+outras 3. A ficha não fecha enquanto faltar assinatura ou leitura final, e a
+tela diz exatamente o que falta.
 
 ## Verificação
 

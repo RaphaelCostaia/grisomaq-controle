@@ -6,6 +6,11 @@ import { AbastecimentoForm } from '@/telas/campo/AbastecimentoForm'
 import { Pendencias } from '@/telas/campo/Pendencias'
 import { Patio } from '@/telas/campo/Patio'
 import { NovaChegada } from '@/telas/campo/NovaChegada'
+import { Apontamentos } from '@/telas/campo/Apontamentos'
+import { ApontamentoNovo } from '@/telas/campo/ApontamentoNovo'
+import { ApontamentoGrade } from '@/telas/campo/ApontamentoGrade'
+import { ApontamentoItemTela } from '@/telas/campo/ApontamentoItem'
+import { Assinaturas } from '@/telas/campo/Assinaturas'
 
 export function Rotas() {
   const { sessao, carregando } = useAutenticacao()
@@ -30,6 +35,11 @@ export function Rotas() {
       <Route path="/abastecimento/novo" element={<AbastecimentoForm />} />
       <Route path="/caminhoes" element={<Patio />} />
       <Route path="/caminhoes/chegada" element={<NovaChegada />} />
+      <Route path="/apontamento" element={<Apontamentos />} />
+      <Route path="/apontamento/nova" element={<ApontamentoNovo />} />
+      <Route path="/apontamento/:id" element={<ApontamentoGrade />} />
+      <Route path="/apontamento/:id/item/:itemId" element={<ApontamentoItemTela />} />
+      <Route path="/apontamento/:id/assinaturas" element={<Assinaturas />} />
       <Route path="/pendencias" element={<Pendencias />} />
       <Route path="*" element={<Navigate to="/abastecimento" replace />} />
     </Routes>

@@ -1,4 +1,4 @@
-import { Delete } from 'lucide-react'
+import { CornerLeftDown, Delete } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { cls } from '@/utilitarios/classes'
 
@@ -7,7 +7,7 @@ interface Props {
   onApagar: () => void
   /** Habilita a virgula decimal - leituras de horimetro tem uma casa. */
   comVirgula?: boolean
-  /** Acao contextual no lugar da virgula, ex.: "usar ultima leitura". */
+  /** Atalho contextual mostrado acima das teclas, ex.: "usar ultima leitura". */
   acaoExtra?: { rotulo: string; onAcionar: () => void; desabilitada?: boolean }
   className?: string
 }
@@ -20,33 +20,51 @@ interface Props {
  */
 export function TecladoNumerico({ onDigito, onApagar, comVirgula, acaoExtra, className }: Props) {
   return (
-    <div
-      className={cls('grid grid-cols-3 border-t-2 border-[var(--cor-borda-forte)] bg-[var(--cor-borda)]', className)}
-      style={{ gap: '1px' }}
-      role="group"
-      aria-label="Teclado numérico"
-    >
-      {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => (
-        <Tecla key={d} onAcionar={() => onDigito(d)}>
-          {d}
-        </Tecla>
-      ))}
-
-      {acaoExtra ? (
-        <Tecla onAcionar={acaoExtra.onAcionar} desabilitada={acaoExtra.desabilitada} secundaria>
-          <span className="px-1 text-xs leading-tight font-bold tracking-wide uppercase">{acaoExtra.rotulo}</span>
-        </Tecla>
-      ) : comVirgula ? (
-        <Tecla onAcionar={() => onDigito(',')}>,</Tecla>
-      ) : (
-        <span className="bg-[var(--cor-superficie)]" />
+    <div className={cls('border-t-2 border-[var(--cor-borda-forte)]', className)}>
+      {/* O atalho fica numa faixa própria, acima dos dígitos, e não ocupando a
+          tecla da vírgula: leitura de horímetro tem casa decimal, e trocar a
+          vírgula pelo atalho deixaria o operador sem como digitar 8119,5. */}
+      {acaoExtra && (
+        <button
+          type="button"
+          onClick={acaoExtra.onAcionar}
+          disabled={acaoExtra.desabilitada}
+          className={cls(
+            'flex min-h-[var(--espaco-toque-min)] w-full items-center justify-center gap-2',
+            'border-b-2 border-[var(--cor-borda-forte)] bg-marca-50 px-4',
+            'text-base font-bold tracking-wide uppercase text-marca-600',
+            'active:bg-marca-100 disabled:opacity-40',
+          )}
+        >
+          <CornerLeftDown aria-hidden className="size-5" />
+          {acaoExtra.rotulo}
+        </button>
       )}
 
-      <Tecla onAcionar={() => onDigito('0')}>0</Tecla>
+      <div
+        className="grid grid-cols-3 bg-[var(--cor-borda)]"
+        style={{ gap: '1px' }}
+        role="group"
+        aria-label="Teclado numérico"
+      >
+        {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => (
+          <Tecla key={d} onAcionar={() => onDigito(d)}>
+            {d}
+          </Tecla>
+        ))}
 
-      <Tecla onAcionar={onApagar} secundaria rotuloAcessivel="Apagar último dígito">
-        <Delete aria-hidden className="size-7" />
-      </Tecla>
+        {comVirgula ? (
+          <Tecla onAcionar={() => onDigito(',')}>,</Tecla>
+        ) : (
+          <span className="bg-[var(--cor-superficie)]" />
+        )}
+
+        <Tecla onAcionar={() => onDigito('0')}>0</Tecla>
+
+        <Tecla onAcionar={onApagar} secundaria rotuloAcessivel="Apagar último dígito">
+          <Delete aria-hidden className="size-7" />
+        </Tecla>
+      </div>
     </div>
   )
 }
