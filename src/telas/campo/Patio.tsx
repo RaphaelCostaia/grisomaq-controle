@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Link } from 'react-router'
 import { toast } from 'sonner'
-import { LogOut, Plus, Truck } from 'lucide-react'
+import { LogOut, Plus, Share2, Truck } from 'lucide-react'
 import { db, lerMeta } from '@/dados/db'
 import { ciclosAbertos, ciclosConcluidosDoDia, registrarSaida } from '@/dados/repositorios/caminhoes'
 import { faixaDePermanencia } from '@/dominio/caminhoes/regras'
@@ -13,7 +13,7 @@ import { AbasInferiores } from '@/componentes/layout/AbasInferiores'
 import { Botao } from '@/componentes/ui/Botao'
 import { Cronometro } from '@/componentes/ui/Cronometro'
 import { useSessao } from '@/autenticacao/contexto'
-import { duracaoCurta, horaDe, minutosEntre } from '@/utilitarios/datas'
+import { duracaoCurta, horaDe, hojeOperacional, minutosEntre } from '@/utilitarios/datas'
 import { vibrar } from '@/utilitarios/dispositivo'
 import { cls } from '@/utilitarios/classes'
 
@@ -27,6 +27,7 @@ import { cls } from '@/utilitarios/classes'
 export function Patio() {
   const sessao = useSessao()
   const [fechando, setFechando] = useState<string | null>(null)
+  const [exportando, setExportando] = useState(false)
 
   const abertos = useLiveQuery(() => ciclosAbertos(), [], [])
   const concluidos = useLiveQuery(() => ciclosConcluidosDoDia(), [], [])
@@ -104,17 +105,45 @@ export function Patio() {
         )}
       </main>
 
-      <div className="sticky bottom-0 border-t-2 border-[var(--cor-borda-forte)] bg-[var(--cor-fundo)] px-4 py-3">
+      <div className="sticky bottom-0 space-y-2 border-t-2 border-[var(--cor-borda-forte)] bg-[var(--cor-fundo)] px-4 py-3">
         <Link to="/caminhoes/chegada">
           <Botao barra icone={<Plus aria-hidden className="size-6" />}>
             Chegada
           </Botao>
         </Link>
+
+        {(abertos.length > 0 || concluidos.length > 0) && (
+          <Botao
+            barra
+            variante="secundaria"
+            disabled={exportando}
+            onClick={() => void exportarDia(setExportando)}
+            icone={<Share2 aria-hidden className="size-5" />}
+          >
+            {exportando ? 'Gerando…' : 'Enviar controle do dia'}
+          </Botao>
+        )}
       </div>
 
       <AbasInferiores />
     </div>
   )
+}
+
+/** Gera o controle do dia no layout da planilha original e compartilha. */
+async function exportarDia(setExportando: (v: boolean) => void) {
+  setExportando(true)
+  try {
+    const { exportarCaminhoes, entregarArquivo } = await import('@/relatorios/exportar')
+    const hoje = hojeOperacional()
+    const blob = await exportarCaminhoes(hoje)
+    const destino = await entregarArquivo(blob, 'CAMINHOES ' + hoje + '.xlsx')
+    toast.success(destino === 'compartilhado' ? 'Controle enviado.' : 'Controle salvo no aparelho.')
+  } catch (erro) {
+    toast.error(erro instanceof Error ? erro.message : 'Não foi possível gerar o controle.')
+  } finally {
+    setExportando(false)
+  }
 }
 
 function LinhaNoCampo({

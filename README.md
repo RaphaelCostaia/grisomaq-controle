@@ -61,6 +61,30 @@ turno só oferece os turnos da escala daquela frente — algumas rodam 2 turnos,
 outras 3. A ficha não fecha enquanto faltar assinatura ou leitura final, e a
 tela diz exatamente o que falta.
 
+## Exportação nos layouts originais
+
+As três fichas saem em `.xlsx` reproduzindo a planilha que a GrisoMaq já usa:
+mesmas colunas, mesma ordem, mesmas mesclagens e larguras, e as 25 linhas
+numeradas do apontamento mesmo quando o turno teve oito pessoas. A fidelidade
+não é capricho — o escritório confere o arquivo ao lado da via de papel.
+
+O que o papel não tinha entra como coluna extra: a **permanência** dos caminhões
+e a **diferença** entre os litros informados e o registrador da bomba, esta em
+carmim quando passa da tolerância.
+
+A coluna de assinatura traz a trilha real do aceite, e diz quando a revalidação
+no servidor ainda não aconteceu — uma assinatura só conferida no celular vale
+menos, e omitir a diferença seria afirmar mais do que se sabe.
+
+A exportação roda **no celular**, a partir do que está gravado localmente: o
+responsável fecha o turno na frente de colheita e manda a ficha por WhatsApp na
+mesma hora, sem esperar a fila subir. O ExcelJS entra por `import()` dinâmico e
+fica num chunk próprio, mas é precacheado pelo service worker de propósito —
+sem isso a exportação exigiria sinal, justamente o que falta em campo. O preço é
+uma instalação inicial maior, paga uma vez, no escritório.
+
+Os arquivos de exemplo saem em `exemplos-relatorio/` ao rodar os testes.
+
 ## Verificação
 
 ```bash

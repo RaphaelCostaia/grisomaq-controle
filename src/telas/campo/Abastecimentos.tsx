@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Link } from 'react-router'
-import { AlertTriangle, Check, Clock, Plus, RefreshCw } from 'lucide-react'
+import { toast } from 'sonner'
+import { AlertTriangle, Check, Clock, Plus, RefreshCw, Share2 } from 'lucide-react'
 import { db } from '@/dados/db'
 import { blocoDoDispositivo } from '@/dados/repositorios/abastecimentos'
 import { BarraSync } from '@/componentes/layout/BarraSync'
@@ -12,6 +14,7 @@ import { hojeOperacional } from '@/utilitarios/datas'
 
 export function Abastecimentos() {
   const hoje = hojeOperacional()
+  const [exportando, setExportando] = useState(false)
 
   const doDia = useLiveQuery(
     async () =>
@@ -65,17 +68,48 @@ export function Abastecimentos() {
         )}
       </main>
 
-      <div className="sticky bottom-0 border-t-2 border-[var(--cor-borda-forte)] bg-[var(--cor-fundo)] px-4 py-3">
+      <div className="sticky bottom-0 space-y-2 border-t-2 border-[var(--cor-borda-forte)] bg-[var(--cor-fundo)] px-4 py-3">
         <Link to="/abastecimento/novo">
           <Botao barra icone={<Plus aria-hidden className="size-6" />}>
             Nova ficha
           </Botao>
         </Link>
+
+        {doDia.length > 0 && (
+          <Botao
+            barra
+            variante="secundaria"
+            disabled={exportando}
+            onClick={() => void exportarDia(hoje, setExportando)}
+            icone={<Share2 aria-hidden className="size-5" />}
+          >
+            {exportando ? 'Gerando…' : 'Enviar ficha do dia'}
+          </Botao>
+        )}
       </div>
 
       <AbasInferiores />
     </div>
   )
+}
+
+/**
+ * Gera a planilha no layout da ficha de papel e entrega pelo compartilhamento
+ * do aparelho. Funciona offline: o dado já está no celular, então o responsável
+ * manda a ficha ao escritório sem esperar a fila subir.
+ */
+async function exportarDia(data: string, setExportando: (v: boolean) => void) {
+  setExportando(true)
+  try {
+    const { exportarAbastecimento, entregarArquivo } = await import('@/relatorios/exportar')
+    const blob = await exportarAbastecimento(data)
+    const destino = await entregarArquivo(blob, 'ABASTECIMENTO ' + data + '.xlsx')
+    toast.success(destino === 'compartilhado' ? 'Ficha enviada.' : 'Ficha salva no aparelho.')
+  } catch (erro) {
+    toast.error(erro instanceof Error ? erro.message : 'Não foi possível gerar a ficha.')
+  } finally {
+    setExportando(false)
+  }
 }
 
 /**

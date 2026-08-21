@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Link, useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
-import { AlertTriangle, ArrowLeft, Check, Clock, Lock, PenLine, Plus } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Check, Clock, Lock, PenLine, Plus, Share2 } from 'lucide-react'
 import { db } from '@/dados/db'
 import { fecharApontamento, itensDoApontamento, paraRascunhoItem } from '@/dados/repositorios/apontamentos'
 import { pendenciasParaFechar } from '@/dominio/apontamento/regras'
@@ -25,6 +25,7 @@ export function ApontamentoGrade() {
   const navegar = useNavigate()
   const sessao = useSessao()
   const [fechando, setFechando] = useState(false)
+  const [exportando, setExportando] = useState(false)
 
   const ficha = useLiveQuery(() => (id ? db.apontamentos.get(id) : undefined), [id], undefined)
   const itens = useLiveQuery(() => (id ? itensDoApontamento(id) : []), [id], [])
@@ -149,22 +150,38 @@ export function ApontamentoGrade() {
         )}
       </main>
 
-      {!fechada && (
-        <div className="area-segura-inferior sticky bottom-0 space-y-2 border-t-2 border-[var(--cor-borda-forte)] bg-[var(--cor-fundo)] px-4 py-3">
+      <div className="area-segura-inferior sticky bottom-0 space-y-2 border-t-2 border-[var(--cor-borda-forte)] bg-[var(--cor-fundo)] px-4 py-3">
+        {!fechada && (
           <Link to={'/apontamento/' + id + '/item/novo'}>
             <Botao barra icone={<Plus aria-hidden className="size-6" />}>
               Funcionário
             </Botao>
           </Link>
+        )}
 
-          {semAssinatura > 0 && (
-            <Link to={'/apontamento/' + id + '/assinaturas'}>
-              <Botao barra variante="secundaria" icone={<PenLine aria-hidden className="size-5" />}>
-                Colher {semAssinatura} assinatura{semAssinatura > 1 ? 's' : ''}
-              </Botao>
-            </Link>
-          )}
+        {!fechada && semAssinatura > 0 && (
+          <Link to={'/apontamento/' + id + '/assinaturas'}>
+            <Botao barra variante="secundaria" icone={<PenLine aria-hidden className="size-5" />}>
+              Colher {semAssinatura} assinatura{semAssinatura > 1 ? 's' : ''}
+            </Botao>
+          </Link>
+        )}
 
+        {itens.length > 0 && (
+          <Botao
+            barra
+            variante="secundaria"
+            disabled={exportando}
+            onClick={() => void exportarFicha(id, setExportando)}
+            icone={<Share2 aria-hidden className="size-5" />}
+          >
+            {exportando ? 'Gerando…' : 'Enviar ficha'}
+          </Botao>
+        )}
+
+        {/* A ficha fechada continua exportável — o escritório pode pedir a via
+            de novo — mas não volta a aceitar lançamento. */}
+        {!fechada && (
           <Botao
             barra
             variante="secundaria"
@@ -174,10 +191,26 @@ export function ApontamentoGrade() {
           >
             {fechando ? 'Fechando…' : 'Fechar ficha'}
           </Botao>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
+}
+
+/** Gera a ficha no layout da planilha original, com as 25 linhas numeradas. */
+async function exportarFicha(apontamentoId: string, setExportando: (v: boolean) => void) {
+  setExportando(true)
+  try {
+    const { exportarApontamento, entregarArquivo } = await import('@/relatorios/exportar')
+    const blob = await exportarApontamento(apontamentoId)
+    if (!blob) throw new Error('Ficha não encontrada neste aparelho.')
+    const destino = await entregarArquivo(blob, 'APONTAMENTO.xlsx')
+    toast.success(destino === 'compartilhado' ? 'Ficha enviada.' : 'Ficha salva no aparelho.')
+  } catch (erro) {
+    toast.error(erro instanceof Error ? erro.message : 'Não foi possível gerar a ficha.')
+  } finally {
+    setExportando(false)
+  }
 }
 
 function Abrindo() {
