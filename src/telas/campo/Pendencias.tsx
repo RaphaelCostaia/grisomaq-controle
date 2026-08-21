@@ -177,13 +177,17 @@ function descricao(item: ItemOutbox): string {
   const numero = item.payload?.numero_documento
   if (typeof numero === 'number') return 'Ficha nº ' + numero
 
-  // A assinatura não carrega o número da ficha, mas o texto do aceite carrega —
-  // e é esse texto que amarra as duas. Sem isso, o operador vê "novo lançamento"
-  // e não sabe a qual ficha aquela linha da fila pertence.
+  // A assinatura não carrega o número da ficha, mas o texto do aceite identifica
+  // o que foi assinado. Sem isso, o operador vê "novo lançamento" e não sabe a
+  // que aquela linha da fila pertence.
   const aceite = item.payload?.texto_aceite
   if (typeof aceite === 'string') {
-    const achado = aceite.match(/ficha nº (\d+)/i)
-    if (achado) return 'Da ficha nº ' + achado[1]
+    const daFicha = aceite.match(/ficha nº (\d+)/i)
+    if (daFicha) return 'Da ficha nº ' + daFicha[1]
+
+    // Aceite de linha de apontamento: "Eu, Fulano, confirmo que trabalhei..."
+    const dePessoa = aceite.match(/^Eu, ([^,]+),/)
+    if (dePessoa) return 'De ' + dePessoa[1]
   }
 
   return item.tipo === 'inserir' ? 'Novo lançamento' : item.tipo === 'atualizar' ? 'Correção' : 'Exclusão'
