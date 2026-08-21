@@ -5,7 +5,7 @@ PWA offline-first que substitui as três fichas de campo da GrisoMaq Serviços A
 | Aba | Substitui | Estado |
 |---|---|---|
 | Abastecimento | Bloco de papel carbonado numerado (ex.: nº 6901) | **Funcional offline** — lança, valida, assina e enfileira |
-| Caminhões | `CONTROLE DE CAMINHÕES.xlsx` | Esquema pronto |
+| Caminhões | `CONTROLE DE CAMINHÕES.xlsx` | **Funcional offline** — pátio ao vivo, chegada e saída |
 | Apontamento | `FICHA_APONTAMENTO.xlsx` | Esquema pronto |
 
 O preenchimento é feito **pelo funcionário, no campo, pelo celular**, com sinal
@@ -46,6 +46,14 @@ a ficha na lista do dia marcada como “esperando sinal”. No caminho, o app:
 - mostra a última leitura conhecida de cada frota, com um toque para reusá-la;
 - registra o aceite por PIN com o texto exato que estava na tela e o hash do
   documento assinado.
+
+No **pátio**, ver quem está no campo agora com o cronômetro correndo, registrar
+uma chegada em quatro toques e a saída em um. O app impede o mesmo caminhão de
+entrar duas vezes sem ter saído, e avisa quando uma carreta consta em outro
+rodotrem que ainda está no campo.
+
+A permanência é o número que a planilha nunca pôde mostrar: no papel ela só
+existiria se alguém subtraísse trezentas linhas à mão.
 
 ## Verificação
 

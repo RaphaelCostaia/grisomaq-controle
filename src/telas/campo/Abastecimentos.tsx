@@ -4,6 +4,7 @@ import { AlertTriangle, Check, Clock, Plus, RefreshCw } from 'lucide-react'
 import { db } from '@/dados/db'
 import { blocoDoDispositivo } from '@/dados/repositorios/abastecimentos'
 import { BarraSync } from '@/componentes/layout/BarraSync'
+import { AbasInferiores } from '@/componentes/layout/AbasInferiores'
 import { Botao } from '@/componentes/ui/Botao'
 import type { EstadoSync } from '@/dominio/tipos'
 import { formatarLitros } from '@/utilitarios/numeros'
@@ -64,13 +65,15 @@ export function Abastecimentos() {
         )}
       </main>
 
-      <div className="area-segura-inferior sticky bottom-0 border-t-2 border-[var(--cor-borda-forte)] bg-[var(--cor-fundo)] px-4 py-3">
+      <div className="sticky bottom-0 border-t-2 border-[var(--cor-borda-forte)] bg-[var(--cor-fundo)] px-4 py-3">
         <Link to="/abastecimento/novo">
           <Botao barra icone={<Plus aria-hidden className="size-6" />}>
             Nova ficha
           </Botao>
         </Link>
       </div>
+
+      <AbasInferiores />
     </div>
   )
 }
