@@ -14,10 +14,10 @@ import { PGlite } from '@electric-sql/pglite'
 import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto'
 import { btree_gist } from '@electric-sql/pglite/contrib/btree_gist'
 import { unaccent } from '@electric-sql/pglite/contrib/unaccent'
-import { PRELUDIO_SUPABASE, listarMigrations } from './banco-de-teste.mjs'
+import { PRELUDIO_SERVIDOR, listarMigrations } from './banco-de-teste.mjs'
 
 const db = new PGlite({ extensions: { pgcrypto, btree_gist, unaccent } })
-await db.exec(PRELUDIO_SUPABASE)
+await db.exec(PRELUDIO_SERVIDOR)
 
 const migrations = listarMigrations()
 if (migrations.length === 0) {

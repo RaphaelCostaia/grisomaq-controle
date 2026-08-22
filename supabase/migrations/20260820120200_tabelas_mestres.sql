@@ -60,7 +60,6 @@ create table public.funcionarios (
   funcao        text,
   papel         public.papel_usuario not null default 'campo',
   frente_padrao_id uuid references public.frentes(id),
-  auth_user_id  uuid unique references auth.users(id) on delete set null,
 
   -- Hash autoritativo do PIN (bcrypt cost 12). Nunca sai do Postgres: a
   -- conferencia acontece em fn_verificar_pin, que recebe o PIN e devolve bool.

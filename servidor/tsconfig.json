@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "NodeNext",
+    "moduleResolution": "nodenext",
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noUncheckedIndexedAccess": true,
+
+    // O Node executa estes arquivos .ts diretamente, sem passo de build. Isto
+    // obriga o código a ficar no subconjunto que o interpretador consegue apagar
+    // — sem enum, sem namespace, sem parameter properties.
+    "erasableSyntaxOnly": true,
+
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["src"]
+}

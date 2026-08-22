@@ -140,7 +140,7 @@ revoke all on function public.fn_registrar_falha_pin(uuid) from public, anon, au
 revoke all on function public.fn_zerar_falhas_pin(uuid) from public, anon, authenticated;
 
 -- --- Dados de login ----------------------------------------------------------
--- Consultada pela Edge Function `login-campo` com service role.
+-- Consultada pela rota de login da API, com o papel de serviço.
 
 create or replace function public.fn_funcionario_para_login(p_codigo text)
 returns table (
@@ -149,7 +149,6 @@ returns table (
   nome text,
   papel public.papel_usuario,
   frente_padrao_id uuid,
-  auth_user_id uuid,
   ativo boolean,
   pin_definido boolean,
   pin_trocar boolean,
@@ -159,10 +158,15 @@ language sql
 security definer
 set search_path = public
 as $$
-  select f.id, f.codigo, f.nome, f.papel, f.frente_padrao_id, f.auth_user_id, f.ativo,
+  select f.id, f.codigo, f.nome, f.papel, f.frente_padrao_id, f.ativo,
          f.pin_hash is not null, f.pin_trocar_no_proximo_acesso, f.pin_bloqueado_ate
     from public.funcionarios f
    where f.codigo = p_codigo
 $$;
 
 revoke all on function public.fn_funcionario_para_login(text) from public, anon, authenticated;
+
+comment on function public.fn_funcionario_para_login is
+  'Só a rota de login chama, com o papel de serviço. Nunca expõe pin_hash: '
+  'devolve apenas se o PIN existe, para a API distinguir "não provisionado" '
+  'de "credencial errada" sem ver o hash.';

@@ -13,44 +13,19 @@ import { unaccent } from '@electric-sql/pglite/contrib/unaccent'
 
 const aqui = dirname(fileURLToPath(import.meta.url))
 
-export const PRELUDIO_SUPABASE = `
-create schema if not exists auth;
-create schema if not exists extensions;
-
-create table if not exists auth.users (
-  id uuid primary key default gen_random_uuid(),
-  email text,
-  created_at timestamptz not null default now()
-);
-
--- Em producao vem do GoTrue; aqui vem de uma GUC que os testes definem.
-create or replace function auth.jwt() returns jsonb
-language sql stable as $$
-  select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb
-$$;
-
-create or replace function auth.uid() returns uuid
-language sql stable as $$
-  select nullif(auth.jwt() ->> 'sub', '')::uuid
-$$;
-
+/**
+ * O que o servidor de produção provisiona antes de aplicar as migrations.
+ *
+ * Encolheu bastante depois da troca do Supabase por uma API própria: o schema
+ * `auth` e os papéis passaram a ser criados por migration (0000), então aqui
+ * resta apenas o papel de serviço, que em produção é um usuário do banco.
+ */
+export const PRELUDIO_SERVIDOR = `
 do $$ begin
-  if not exists (select 1 from pg_roles where rolname = 'anon') then create role anon nologin; end if;
-  if not exists (select 1 from pg_roles where rolname = 'authenticated') then create role authenticated nologin; end if;
-  if not exists (select 1 from pg_roles where rolname = 'service_role') then create role service_role nologin bypassrls; end if;
-  if not exists (select 1 from pg_roles where rolname = 'supabase_auth_admin') then create role supabase_auth_admin nologin; end if;
+  if not exists (select 1 from pg_roles where rolname = 'servico') then
+    create role servico nologin bypassrls;
+  end if;
 end $$;
-
--- O Supabase real ja concede isso; sem o grant, toda policy que chama
--- auth.jwt() morre com "permission denied for schema auth".
-grant usage on schema auth to anon, authenticated, service_role;
-grant execute on function auth.jwt() to anon, authenticated, service_role;
-grant execute on function auth.uid() to anon, authenticated, service_role;
-
-grant usage on schema public to anon, authenticated, service_role;
-alter default privileges in schema public grant all on tables to authenticated, service_role;
-alter default privileges in schema public grant all on functions to authenticated, service_role;
-alter default privileges in schema public grant all on sequences to authenticated, service_role;
 `
 
 export function listarMigrations() {
@@ -64,7 +39,7 @@ export function listarMigrations() {
 /** Base nova com todas as migrations aplicadas. */
 export async function criarBanco() {
   const db = new PGlite({ extensions: { pgcrypto, btree_gist, unaccent } })
-  await db.exec(PRELUDIO_SUPABASE)
+  await db.exec(PRELUDIO_SERVIDOR)
   for (const { sql } of listarMigrations()) {
     await db.exec(sql)
   }
