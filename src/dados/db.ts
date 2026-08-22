@@ -51,7 +51,7 @@ export interface Meta {
 }
 
 /**
- * Base local do app. E a fonte de verdade da UI: nenhuma tela le do Supabase.
+ * Base local do app. E a fonte de verdade da UI: nenhuma tela le da API.
  * O motor de sincronizacao e o unico componente que conhece a rede.
  */
 export class BaseGrisomaq extends Dexie {

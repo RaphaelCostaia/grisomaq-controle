@@ -49,6 +49,15 @@ export const config = {
     .map((o) => o.trim())
     .filter(Boolean),
 
+  /**
+   * Limites de requisição. Configuráveis porque o valor certo depende do
+   * tamanho da operação — dez celulares ou cinquenta —, e porque a suíte de
+   * teste precisa de teto alto para exercitar dezenas de logins seguidos.
+   * Os padrões são os de produção: mexer neles é uma decisão explícita.
+   */
+  rateLimiteGeral: Number(opcional('RATE_LIMITE_GERAL', '300')),
+  rateLimiteLogin: Number(opcional('RATE_LIMITE_LOGIN', '10')),
+
   ambiente: opcional('NODE_ENV', 'production'),
 }
 

@@ -12,16 +12,16 @@
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "db:validar": "node supabase/validar-migrations.mjs",
-    "db:testar": "node supabase/testes/sync.mjs",
-    "db:reset": "supabase db reset",
-    "db:tipos": "supabase gen types typescript --local > src/dados/tipos-banco.ts",
-    "verificar": "npm run typecheck && npm run test && npm run db:validar && npm run db:testar"
+    "db:validar": "node banco/validar-migrations.mjs",
+    "db:testar": "node banco/testes/sync.mjs",
+    "verificar": "npm run typecheck && npm run servidor:typecheck && npm run test && npm run db:validar && npm run db:testar && npm run servidor:testar",
+    "relatorios:exemplo": "vitest run src/relatorios",
+    "servidor:testar": "node --test servidor/src/api.teste.ts",
+    "servidor:typecheck": "tsc --noEmit -p servidor/tsconfig.json"
   },
   "dependencies": {
     "@date-fns/tz": "^1.4.1",
     "@hookform/resolvers": "^5.2.2",
-    "@supabase/supabase-js": "^2.58.0",
     "@tanstack/react-query": "^5.90.2",
     "@tanstack/react-table": "^8.21.3",
     "date-fns": "^4.1.0",

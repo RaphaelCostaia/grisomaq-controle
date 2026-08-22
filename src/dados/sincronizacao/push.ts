@@ -1,5 +1,5 @@
 import { db, type ItemOutbox } from '../db'
-import { supabase } from '../supabase'
+import { chamar, ErroApi } from '../api'
 import { contextoDoPush, proximoLote } from '../outbox'
 import { MAX_TENTATIVAS, momentoDaProximaTentativa } from './backoff'
 
@@ -27,8 +27,6 @@ export interface SaidaPush {
   erro: string | null
 }
 
-const TIMEOUT_MS = 20_000
-
 /**
  * Envia um lote da fila. Nao lanca excecao por falha de rede: sem sinal e o
  * estado NORMAL deste app, nao uma condicao de erro. A fila simplesmente
@@ -48,15 +46,11 @@ export async function enviarLote(): Promise<SaidaPush> {
 
   let resposta: RespostaPush
   try {
-    resposta = await comTimeout(
-      supabase.rpc('sync_push', {
-        p_operacoes: lote.map(paraOperacao),
-        p_dispositivo_id: dispositivo_id,
-        p_app_versao: app_versao,
-      }),
-    )
+    resposta = await chamar<RespostaPush>('/sync/push', {
+      corpo: { operacoes: lote.map(paraOperacao), dispositivo_id, app_versao },
+    })
   } catch (erro) {
-    const mensagem = erro instanceof Error ? erro.message : String(erro)
+    const mensagem = erro instanceof ErroApi ? erro.codigo : String(erro)
     if (/VERSAO_OBSOLETA/.test(mensagem)) {
       await devolverParaFila(lote, 'VERSAO_OBSOLETA', 'Atualize o aplicativo para enviar os lançamentos.')
       return { ...vazio, enviadas: lote.length, versaoObsoleta: true, erro: mensagem }
@@ -128,9 +122,10 @@ async function revalidarAssinaturas(
   if (assinaturas.length === 0) return
 
   try {
-    const { data } = await supabase.functions.invoke<{
-      resultados: Array<{ assinatura_id: string; validacao: string }>
-    }>('verificar-assinaturas', { body: { assinaturas } })
+    const data = await chamar<{ resultados: Array<{ assinatura_id: string; validacao: string }> }>(
+      '/assinaturas/verificar',
+      { corpo: { assinaturas } },
+    )
 
     for (const r of data?.resultados ?? []) {
       if (r.validacao === 'validado_servidor' || r.validacao === 'invalida') {
@@ -203,19 +198,4 @@ function tabelaLocal(nome: string) {
     case 'assinaturas_aceite': return db.assinaturas_aceite
     default: return null
   }
-}
-
-async function comTimeout<T>(promessa: PromiseLike<{ data: T | null; error: unknown }>): Promise<T> {
-  const resultado = await Promise.race([
-    promessa,
-    new Promise<never>((_, rejeitar) =>
-      setTimeout(() => rejeitar(new Error('TEMPO_ESGOTADO')), TIMEOUT_MS),
-    ),
-  ])
-  if (resultado.error) {
-    const e = resultado.error as { message?: string }
-    throw new Error(e.message ?? 'Falha no envio')
-  }
-  if (!resultado.data) throw new Error('Resposta vazia do servidor')
-  return resultado.data
 }

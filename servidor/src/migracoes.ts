@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { comoServico, encerrarPool } from './banco.ts'
 
-const PASTA = join(dirname(fileURLToPath(import.meta.url)), '..', 'migrations')
+const PASTA = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'banco', 'migrations')
 
 /**
  * Aplica as migrations pendentes, em ordem, uma por transação.

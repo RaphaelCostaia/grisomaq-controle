@@ -1,6 +1,6 @@
 /**
  * Monta um Postgres real (PGlite) com o esquema completo aplicado, mais os
- * stubs do que o Supabase fornece em runtime (schema auth, auth.jwt(), papeis).
+ * o papel de servico que o servidor de producao provisiona.
  * Compartilhado pelo validador de migrations e pelos testes de comportamento.
  */
 import { readFileSync, readdirSync } from 'node:fs'
@@ -16,7 +16,7 @@ const aqui = dirname(fileURLToPath(import.meta.url))
 /**
  * O que o servidor de produção provisiona antes de aplicar as migrations.
  *
- * Encolheu bastante depois da troca do Supabase por uma API própria: o schema
+ * Encolheu bastante depois da troca para uma API própria: o schema
  * `auth` e os papéis passaram a ser criados por migration (0000), então aqui
  * resta apenas o papel de serviço, que em produção é um usuário do banco.
  */

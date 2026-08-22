@@ -1,5 +1,5 @@
 import { CHAVES_META, db, gravarMeta, totalPendentes } from '../db'
-import { supabase, supabaseConfigurado } from '../supabase'
+import { apiConfigurada, temSessao } from '../api'
 import { atualizarEstadoSync, lerEstadoSync } from './estado'
 import { enviarLote } from './push'
 import { baixarAlteracoes } from './pull'
@@ -18,7 +18,7 @@ let rodando = false
  * a fila local ficaria inconsistente).
  */
 export async function sincronizarAgora(): Promise<void> {
-  if (rodando || !supabaseConfigurado) return
+  if (rodando || !apiConfigurada) return
   if (!navigator.onLine) {
     atualizarEstadoSync({ situacao: 'sem_sinal', pendentes: await totalPendentes() })
     return
@@ -29,10 +29,9 @@ export async function sincronizarAgora(): Promise<void> {
     atualizarEstadoSync({ situacao: 'sincronizando' })
 
     try {
-      // Sem sessao valida nao ha o que fazer, e isso NAO e erro: o aparelho pode
-      // estar dias offline. A fila espera; ninguem perde lancamento.
-      const { data } = await supabase.auth.getSession()
-      if (!data.session) {
+      // Sem sessao nao ha o que fazer, e isso NAO e erro: o aparelho pode estar
+      // dias offline. A fila espera; ninguem perde lancamento.
+      if (!temSessao()) {
         atualizarEstadoSync({ situacao: 'ocioso', pendentes: await totalPendentes() })
         return
       }

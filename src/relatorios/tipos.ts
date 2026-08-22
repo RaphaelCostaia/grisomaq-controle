@@ -2,7 +2,7 @@
  * Formatos que os exportadores consomem.
  *
  * São linhas já desnormalizadas — número da frota em vez de id, nome em vez de
- * uuid. O exportador não conhece Dexie nem Supabase: recebe o que vai imprimir
+ * uuid. O exportador não conhece Dexie nem a API: recebe o que vai imprimir
  * e desenha. Isso permite gerar o mesmo arquivo a partir do celular ou do
  * painel do escritório, sem duplicar a montagem do layout.
  */

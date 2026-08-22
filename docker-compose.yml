@@ -1,0 +1,72 @@
+# Sobe a pilha completa localmente, do jeito mais próximo possível da VPS.
+#
+# No EasyPanel cada serviço é criado pela interface (App + Postgres) e o Traefik
+# cuida de domínio e HTTPS — este arquivo não é aplicado lá. Ele existe para
+# testar o conjunto antes de publicar, e para documentar o que a VPS precisa ter.
+#
+#   docker compose up --build
+
+services:
+  banco:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: grisomaq
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-trocar-esta-senha}
+      POSTGRES_DB: grisomaq
+      # A operação inteira é em português do Brasil; ordenação e mensagens do
+      # banco acompanham.
+      LANG: pt_BR.UTF-8
+    volumes:
+      - dados-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U grisomaq -d grisomaq']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Numa KVM 1 (1 vCPU / 4 GB), deixar o Postgres sem teto faz o cache dele
+    # competir com a API pela memória da máquina.
+    deploy:
+      resources:
+        limits:
+          memory: 1500M
+
+  api:
+    build:
+      context: .
+      dockerfile: servidor/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      banco:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://grisomaq:${POSTGRES_PASSWORD:-trocar-esta-senha}@banco:5432/grisomaq
+      JWT_SEGREDO: ${JWT_SEGREDO:?defina JWT_SEGREDO}
+      CHAVE_PRIVADA_ASSINATURA: ${CHAVE_PRIVADA_ASSINATURA:-}
+      ORIGENS_PERMITIDAS: ${ORIGENS_PERMITIDAS:-http://localhost:8080}
+      NODE_ENV: production
+    ports:
+      - '3000:3000'
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:3000}
+        VITE_APP_VERSAO: ${VITE_APP_VERSAO:-0.1.0}
+        VITE_CHAVE_PUBLICA_ASSINATURA: ${VITE_CHAVE_PUBLICA_ASSINATURA:-}
+    restart: unless-stopped
+    ports:
+      - '8080:80'
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+volumes:
+  dados-postgres:

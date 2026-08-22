@@ -4,7 +4,7 @@
  *
  * Existe porque nem toda maquina de desenvolvimento tem Docker, e migration que
  * nunca foi executada nao e migration - e rascunho. Isto nao substitui
- * `supabase db reset`: o ambiente real tem GoTrue, Storage e o hook de token.
+ * o ambiente real, que tem o Postgres de verdade e a API por cima.
  * O que este script pega e o que mais custa caro achar tarde: erro de sintaxe,
  * coluna inexistente, trigger mal declarado, ordem errada de arquivo.
  *

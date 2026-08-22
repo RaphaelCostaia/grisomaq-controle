@@ -1,10 +1,11 @@
 /**
- * Gera o par de chaves RSA-OAEP usado na revalidação das assinaturas.
+ * Gera os segredos do ambiente: o par de chaves RSA-OAEP da revalidação de
+ * assinaturas e o segredo de assinatura do JWT.
  *
- *   node supabase/gerar-chaves-assinatura.mjs
+ *   node banco/gerar-chaves-assinatura.mjs
  *
- * A pública vai para o app (VITE_CHAVE_PUBLICA_ASSINATURA) e é embarcada no
- * bundle — ela só cifra. A privada vai para o segredo da Edge Function
+ * A chave pública vai para o app (VITE_CHAVE_PUBLICA_ASSINATURA) e é embarcada
+ * no bundle — ela só cifra. A privada vai para a variável de ambiente da API
  * (CHAVE_PRIVADA_ASSINATURA) e nunca sai do servidor.
  *
  * Rode uma vez por ambiente. Trocar o par depois invalida a revalidação das
@@ -23,13 +24,12 @@ const paraBase64 = (buffer) => Buffer.from(new Uint8Array(buffer)).toString('bas
 
 const publica = paraBase64(await webcrypto.subtle.exportKey('spki', par.publicKey))
 const privada = paraBase64(await webcrypto.subtle.exportKey('pkcs8', par.privateKey))
+const segredoJwt = paraBase64(webcrypto.getRandomValues(new Uint8Array(48)))
 
-console.log('\n--- .env do app (pode ir para o bundle) ---\n')
+console.log('\n--- Build Arguments do serviço do app (vão para o bundle) ---\n')
 console.log('VITE_CHAVE_PUBLICA_ASSINATURA=' + publica)
 
-console.log('\n--- segredo da Edge Function (NUNCA no bundle) ---\n')
-console.log('supabase secrets set CHAVE_PRIVADA_ASSINATURA=' + privada)
-
-console.log('\n--- segredo da derivação de senha, se ainda não existir ---\n')
-console.log('supabase secrets set AUTH_DERIVACAO_SECRET=' + paraBase64(webcrypto.getRandomValues(new Uint8Array(32))))
+console.log('\n--- Variáveis de ambiente da API (NUNCA no bundle) ---\n')
+console.log('CHAVE_PRIVADA_ASSINATURA=' + privada)
+console.log('JWT_SEGREDO=' + segredoJwt)
 console.log()

@@ -1,5 +1,5 @@
 import { CHAVES_META, db, gravarMeta, lerMeta } from '../db'
-import { supabase } from '../supabase'
+import { chamar } from '../api'
 
 interface RespostaPull {
   servidor_agora: string
@@ -17,10 +17,12 @@ interface RespostaPull {
 export async function baixarAlteracoes(): Promise<{ baixados: number; erro: string | null }> {
   const desde = await lerMeta<string>(CHAVES_META.ultimoPull)
 
-  const { data, error } = await supabase.rpc('sync_pull', { p_desde: desde ?? null })
-  if (error) return { baixados: 0, erro: error.message }
-
-  const resposta = data as RespostaPull
+  let resposta: RespostaPull
+  try {
+    resposta = await chamar<RespostaPull>('/sync/pull', { corpo: { desde: desde ?? null } })
+  } catch (erro) {
+    return { baixados: 0, erro: erro instanceof Error ? erro.message : String(erro) }
+  }
   let baixados = 0
 
   await db.transaction(

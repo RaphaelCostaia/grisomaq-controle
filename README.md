@@ -11,9 +11,28 @@ PWA offline-first que substitui as três fichas de campo da GrisoMaq Serviços A
 O preenchimento é feito **pelo funcionário, no campo, pelo celular**, com sinal
 intermitente. O escritório consolida num painel e exporta nos layouts originais.
 
+## Como roda
+
+Três serviços numa VPS Hostinger KVM 1, orquestrados pelo EasyPanel:
+
+| Serviço | O que é |
+|---|---|
+| `banco` | Postgres 17 — schema, RLS, triggers e as funções de sincronização |
+| `api` | Node/Fastify — autenticação por PIN e as duas RPCs de sync |
+| `app` | nginx servindo o PWA compilado |
+
+O passo a passo de implantação está em [DEPLOY.md](DEPLOY.md).
+
+A API é pequena de propósito. Ela não é uma camada de negócio: a lógica de
+idempotência, conflito e resolução de versão vive no Postgres, e a API apenas
+assume o papel `authenticated` e publica as reivindicações do JWT — o mesmo
+mecanismo que o PostgREST usa. Com isso a **RLS continua sendo a autoridade**:
+a API roda com um usuário sem `bypassrls`, então nem um bug dela consegue ler
+o que aquele funcionário não poderia.
+
 ## Como o app se comporta sem sinal
 
-A UI nunca fala com o Supabase. Toda escrita entra no IndexedDB (Dexie) dentro de
+A UI nunca fala com a API. Toda escrita entra no IndexedDB (Dexie) dentro de
 uma transação que grava o registro **e** um item de fila (`outbox`). Toda leitura
 vem do Dexie. Um único módulo — o motor de sincronização — conhece a rede.
 
@@ -25,11 +44,18 @@ funcionando integralmente mesmo dias offline (o JWT só é necessário no push).
 
 ```bash
 npm install
-cp .env.example .env   # preencher com a URL e a anon key do projeto Supabase
-npm run dev
+cp .env.example .env
+npm run dev                          # PWA em http://localhost:5180
+
+cd servidor && npm install
+DATABASE_URL=... JWT_SEGREDO=... npm run dev   # API em http://localhost:3000
 ```
 
-O app sobe em `http://localhost:5180`.
+Ou tudo junto, do jeito mais próximo da VPS:
+
+```bash
+docker compose up --build
+```
 
 ## O que já funciona
 
@@ -91,8 +117,21 @@ Os arquivos de exemplo saem em `exemplos-relatorio/` ao rodar os testes.
 npm run verificar
 ```
 
-Roda, em ordem: typecheck, os testes de domínio e da fila local, a aplicação de
-todas as migrations num Postgres real e os testes de comportamento do sync.
+Roda, em ordem: typecheck do app e do servidor, os testes de domínio e da fila
+local, a aplicação de todas as migrations num Postgres real, os testes de
+comportamento do sync e os testes de integração da API.
+
+### Testes de integração da API
+
+`npm run servidor:testar` sobe o Fastify de verdade contra um Postgres real e
+bate nas rotas por HTTP, exercitando JWT, `SET LOCAL ROLE`, publicação das
+reivindicações, policies e as funções de sync.
+
+O teste mais importante do arquivo é o de **vazamento de identidade no pool**:
+requisições de dois funcionários intercaladas na mesma conexão. Se
+`set_config` não estivesse amarrado à transação, a identidade do primeiro
+sobreviveria e o segundo leria dados que não são dele — um vazamento silencioso,
+que não aparece em log nem em erro.
 
 ### Por que o banco é testado sem Docker
 
@@ -101,27 +140,31 @@ verdade compilado para WASM (PGlite), com os papéis `authenticated`/`service_ro
 e a RLS ligada. Migration que nunca foi executada não é migration, é rascunho — e
 nem toda máquina de desenvolvimento tem Docker.
 
-Isso **não** substitui `supabase db reset` no ambiente real, que tem GoTrue,
-Storage e o Custom Access Token Hook. O que estes scripts pegam é o que custa mais
-caro descobrir tarde. Dois exemplos reais, achados por eles antes de qualquer
-deploy: o trigger que alimenta o histórico de leituras rodava com a permissão do
-funcionário e era barrado pela própria RLS (todo abastecimento falharia), e o
-`sync_push` marcava o status da operação com um UPDATE que a RLS bloqueava em
-silêncio (conflito ficava gravado como "aplicada", e o lançamento sumia da fila
-sem nunca ter entrado no banco).
+Isso **não** substitui subir a pilha real com `docker compose`. O que estes
+scripts pegam é o que custa mais caro descobrir tarde. Dois exemplos reais,
+achados por eles antes de qualquer deploy: o trigger que alimenta o histórico de
+leituras rodava com a permissão do funcionário e era barrado pela própria RLS
+(todo abastecimento falharia), e o `sync_push` marcava o status da operação com
+um UPDATE que a RLS bloqueava em silêncio (conflito ficava gravado como
+"aplicada", e o lançamento sumia da fila sem nunca ter entrado no banco).
 
 ## Estrutura
 
 ```
-supabase/
+banco/
   migrations/        0100 tipos · 0200 mestres · 0300 as três fichas
                      0400 assinaturas/sync · 0500 triggers · 0600 views
                      0700 PIN · 0800 token hook · 0900 RLS · 1000 sync · 1100 parâmetros
   testes/sync.mjs    comportamento do motor: idempotência, conflito, RLS
-  banco-de-teste.mjs Postgres em WASM + stubs do que o Supabase dá em runtime
+  banco-de-teste.mjs Postgres em WASM, para validar o esquema sem Docker
+servidor/
+  src/banco.ts       pool + `comoFuncionario` (com RLS) e `comoServico` (sem)
+  src/jwt.ts         emissão do access token e rotação do refresh
+  src/rotas/         autenticação, sincronização, administração
+  src/api.teste.ts   integração da API contra Postgres real
 src/
-  dominio/           tipos e regras de validação (Zod), sem dependência de UI
-  dados/             Dexie, cliente Supabase, repositórios, motor de sincronização
+  dominio/           tipos e regras de validação, sem dependência de UI
+  dados/             Dexie, cliente da API, repositórios, motor de sincronização
   autenticacao/      login por código+PIN, sessão, PIN local
   componentes/ui/    teclado numérico, botão, marca — feitos para luva e sol
   telas/campo/       as três abas de lançamento
@@ -134,6 +177,11 @@ src/
 **Chaves primárias nascem no celular** (UUIDv7, não v4). Sem isso nada poderia ser
 criado offline. A v7 carrega o timestamp no prefixo, então a fila ordenada por id
 fica em ordem cronológica — o cabeçalho do apontamento sobe antes dos itens dele.
+
+**A API não é a autoridade de acesso; a RLS é.** Ela roda com um usuário sem
+`bypassrls` e abre cada requisição assumindo o papel do funcionário. O
+`set_config` é amarrado à transação de propósito: sem isso, a identidade
+sobreviveria no pool e vazaria para a próxima requisição.
 
 **O PIN de 4 dígitos vale como assinatura.** É proporcional à finalidade: substitui
 uma rubrica a caneta. Os controles reais são a revalidação no servidor, a RLS que
