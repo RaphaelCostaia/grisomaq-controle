@@ -8,6 +8,7 @@ import { aplicarMigracoes } from './migracoes.ts'
 import { rotasDeAutenticacao } from './rotas/autenticacao.ts'
 import { rotasDeSincronizacao } from './rotas/sincronizacao.ts'
 import { rotasDeAdministracao } from './rotas/administracao.ts'
+import { rotasDoPainel } from './rotas/painel.ts'
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -80,6 +81,7 @@ export async function construirServidor() {
   await app.register(rotasDeAutenticacao)
   await app.register(rotasDeSincronizacao)
   await app.register(rotasDeAdministracao)
+  await app.register(rotasDoPainel)
 
   app.setErrorHandler((erro: FastifyError, requisicao, resposta) => {
     requisicao.log.error({ erro: erro.message }, 'falha na requisição')

@@ -6,6 +6,14 @@ import { config } from './config.ts'
 // devolver string quebraria o cliente, que espera número.
 pg.types.setTypeParser(pg.types.builtins.NUMERIC, (v) => (v === null ? null : Number(v)))
 
+// `date` fica como veio: 'aaaa-mm-dd'.
+//
+// O driver converteria para Date, que ao virar JSON ganha hora e fuso
+// ('2026-08-09T00:00:00.000Z') — e aí uma data de negócio passa a depender do
+// fuso de quem lê. O app inteiro trata data de ficha como texto de dez
+// caracteres; o servidor devolve exatamente isso.
+pg.types.setTypeParser(pg.types.builtins.DATE, (v) => v)
+
 export const pool = new pg.Pool({
   connectionString: config.bancoUrl,
   // A KVM 1 tem 1 vCPU: um pool grande só cria contenção. Dez conexões atendem

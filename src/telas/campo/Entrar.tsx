@@ -4,6 +4,7 @@ import { Botao } from '@/componentes/ui/Botao'
 import { Marca } from '@/componentes/ui/Marca'
 import { TecladoNumerico } from '@/componentes/ui/TecladoNumerico'
 import { entrarComCodigoEPin } from '@/autenticacao/login'
+import { useAutenticacao } from '@/autenticacao/contexto'
 import { vibrar } from '@/utilitarios/dispositivo'
 import { cls } from '@/utilitarios/classes'
 
@@ -18,6 +19,7 @@ export function Entrar() {
   const [pin, setPin] = useState('')
   const [erro, setErro] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
+  const { definirSessao } = useAutenticacao()
 
   const autenticar = useCallback(
     async (pinCompleto: string) => {
@@ -32,9 +34,14 @@ export function Entrar() {
         setErro(resultado.mensagem)
         return
       }
+
       vibrar('ok')
+      // O contexto lê a sessão do IndexedDB só na montagem. Sem avisá-lo aqui,
+      // o login grava a sessão e a tela continua pedindo o PIN — o app fica
+      // parado sem nenhum erro para mostrar.
+      definirSessao(resultado.sessao)
     },
-    [codigo],
+    [codigo, definirSessao],
   )
 
   function digitar(digito: string) {

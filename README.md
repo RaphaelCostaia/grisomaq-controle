@@ -111,6 +111,26 @@ uma instalação inicial maior, paga uma vez, no escritório.
 
 Os arquivos de exemplo saem em `exemplos-relatorio/` ao rodar os testes.
 
+## Painel do escritório
+
+O escritório entra com o **mesmo código e PIN** do campo — não há segunda
+credencial para lembrar. O papel no cadastro é que decide onde a pessoa cai.
+
+- **Painel** — abre pelo que exige ação (lançamentos travados, celulares sem
+  enviar, assinaturas a conferir, fichas com diferença de diesel) e só depois
+  mostra tendência. Quem abre a tela de manhã precisa saber se algo quebrou
+  antes de olhar gráfico.
+- **Lançamentos travados** — o que o campo preencheu e o banco recusou, com o
+  payload do operador e o que costuma resolver cada tipo de conflito. Marcar
+  como resolvido só tira da fila; o lançamento em si é corrigido pela ficha.
+- **Funcionários** — cadastro e provisionamento de PIN. O PIN inicial aparece
+  uma vez, para ser impresso e entregue em mãos.
+
+As cores das séries dos gráficos foram validadas para daltonismo contra o fundo
+do painel, e evitam de propósito o carmim e as cores de estado: carmim é
+identidade de documento, e verde/âmbar/vermelho significam "tudo bem / atenção /
+erro". Reaproveitá-los como cor de série faria uma linha subindo parecer alerta.
+
 ## Verificação
 
 ```bash

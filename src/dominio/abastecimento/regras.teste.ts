@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { conferirLitros, validarAbastecimento, type ContextoAbastecimento, type RascunhoAbastecimento } from './regras'
 import { PARAMETROS_PADRAO } from '@/dominio/parametros'
 import type { BlocoAbastecimento, Frota } from '@/dominio/tipos'
-import { hojeOperacional, instanteDe } from '@/utilitarios/datas'
+import { dataBr, hojeOperacional, instanteDe } from '@/utilitarios/datas'
 
 // O "agora" dos testes e ancorado no dia operacional, e nao no relogio da
 // maquina que roda a suite: com hora fixa no rascunho, o teste passaria de
@@ -242,5 +242,17 @@ describe('assinatura e hora', () => {
     // lançamento por um problema que não é do operador.
     const r = validarAbastecimento(rascunho({ hora: '15:10' }), contexto())
     expect(codigos(r)).not.toContain('MOMENTO_FUTURO')
+  })
+})
+
+describe('formatação de data de negócio', () => {
+  it('formata a data de dez caracteres que o servidor devolve', () => {
+    expect(dataBr('2026-08-09')).toBe('09/08/2026')
+  })
+
+  // Nem todo driver respeita o tipo `date`: alguns devolvem Date, que vira ISO
+  // com hora no JSON. O rótulo do gráfico não pode virar "09T00" por causa disso.
+  it('tolera um ISO completo sem produzir rótulo sem sentido', () => {
+    expect(dataBr('2026-08-09T00:00:00.000Z')).toBe('09/08/2026')
   })
 })

@@ -43,9 +43,16 @@ export function horaDe(instante: Date): string {
   return format(new TZDate(instante, FUSO_OPERACAO), 'HH:mm')
 }
 
-/** `dd/MM/aaaa` para exibicao. */
+/**
+ * `dd/MM/aaaa` para exibicao.
+ *
+ * Aceita tanto 'aaaa-mm-dd' quanto um ISO completo. O servidor devolve datas de
+ * negocio como texto de dez caracteres, mas nem todo driver de banco respeita
+ * isso — e uma funcao de formatacao que quebra com entrada mais longa produz
+ * rotulo sem sentido no eixo do grafico em vez de erro visivel.
+ */
 export function dataBr(dataIso: string): string {
-  const [ano, mes, dia] = dataIso.split('-')
+  const [ano, mes, dia] = dataIso.slice(0, 10).split('-')
   return `${dia}/${mes}/${ano}`
 }
 

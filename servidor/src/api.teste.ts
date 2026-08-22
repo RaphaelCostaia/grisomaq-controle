@@ -395,6 +395,150 @@ describe('administração', () => {
   })
 })
 
+describe('painel do escritório', () => {
+  it('recusa acesso a quem não é do escritório', async () => {
+    const { corpo } = await entrar('1001', '4731')
+    for (const rota of ['/painel/resumo', '/painel/conflitos', '/painel/funcionarios']) {
+      const r = await app.inject({ method: 'POST', url: rota, headers: comToken(corpo), payload: {} })
+      assert.equal(r.statusCode, 403, 'rota desprotegida: ' + rota)
+    }
+  })
+
+  it('traz o resumo com os números do período', async () => {
+    const admin = await entrar('9001', '7196')
+    const r = await app.inject({
+      method: 'POST',
+      url: '/painel/resumo',
+      headers: comToken(admin.corpo),
+      payload: { dias: 30 },
+    })
+    assert.equal(r.statusCode, 200)
+    const dados = r.json()
+    assert.equal(dados.periodo_dias, 30)
+    assert.ok(Array.isArray(dados.abastecimento))
+    assert.ok(typeof dados.conflitos_pendentes === 'number')
+  })
+
+  // O conflito criado no teste de sincronização precisa chegar até aqui: é a
+  // única forma de o escritório saber que existe um lançamento travado.
+  it('lista o conflito preservado, com o payload do operador', async () => {
+    const admin = await entrar('9001', '7196')
+    const r = await app.inject({
+      method: 'POST',
+      url: '/painel/conflitos',
+      headers: comToken(admin.corpo),
+      payload: {},
+    })
+
+    const conflitos = r.json().conflitos as Array<Record<string, unknown>>
+    assert.ok(conflitos.length > 0, 'o conflito não apareceu no painel')
+
+    const duplicado = conflitos.find((c) => c.erro_codigo === 'NUMERO_DOCUMENTO_DUPLICADO')
+    assert.ok(duplicado, 'faltou o conflito de número duplicado')
+    assert.ok(duplicado.payload, 'o payload do operador não veio junto')
+    assert.equal(duplicado.funcionario_codigo, '1001')
+  })
+
+  it('marca o conflito como resolvido e o tira da fila', async () => {
+    const admin = await entrar('9001', '7196')
+    const lista = await app.inject({
+      method: 'POST',
+      url: '/painel/conflitos',
+      headers: comToken(admin.corpo),
+      payload: {},
+    })
+    const primeiro = (lista.json().conflitos as Array<{ id: string }>)[0]
+    assert.ok(primeiro)
+
+    const r = await app.inject({
+      method: 'POST',
+      url: '/painel/conflitos/resolver',
+      headers: comToken(admin.corpo),
+      payload: { operacao_id: primeiro.id },
+    })
+    assert.equal(r.json().resolvido, true)
+
+    const depois = await app.inject({
+      method: 'POST',
+      url: '/painel/conflitos',
+      headers: comToken(admin.corpo),
+      payload: {},
+    })
+    const ids = (depois.json().conflitos as Array<{ id: string }>).map((c) => c.id)
+    assert.ok(!ids.includes(primeiro.id), 'o conflito resolvido continuou na fila')
+  })
+
+  it('lista funcionários com o estado do PIN, sem expor o hash', async () => {
+    const admin = await entrar('9001', '7196')
+    const r = await app.inject({
+      method: 'POST',
+      url: '/painel/funcionarios',
+      headers: comToken(admin.corpo),
+      payload: {},
+    })
+
+    const bruto = JSON.stringify(r.json())
+    assert.ok(!bruto.includes('pin_hash'), 'o hash do PIN vazou para o painel')
+    assert.ok(!bruto.includes('pin_verificador_offline'))
+
+    const funcionarios = r.json().funcionarios as Array<Record<string, unknown>>
+    const operador = funcionarios.find((f) => f.codigo === '1001')
+    assert.equal(operador?.pin_provisionado, true)
+  })
+
+  it('cadastra funcionário novo e recusa código repetido', async () => {
+    const admin = await entrar('9001', '7196')
+
+    const novo = await app.inject({
+      method: 'POST',
+      url: '/painel/funcionarios/salvar',
+      headers: comToken(admin.corpo),
+      payload: { codigo: '1050', nome: 'Novo Operador', papel: 'campo', ativo: true },
+    })
+    assert.equal(novo.statusCode, 200)
+    assert.ok(novo.json().id)
+
+    const repetido = await app.inject({
+      method: 'POST',
+      url: '/painel/funcionarios/salvar',
+      headers: comToken(admin.corpo),
+      payload: { codigo: '1050', nome: 'Outro', papel: 'campo', ativo: true },
+    })
+    assert.equal(repetido.statusCode, 409)
+    assert.equal(repetido.json().erro, 'CODIGO_JA_USADO')
+  })
+
+  // A ficha escolhe a consulta indexando um mapa fechado. Um valor fora do mapa
+  // tem que ser recusado, e não concatenado.
+  it('recusa ficha desconhecida na consulta de lançamentos', async () => {
+    const admin = await entrar('9001', '7196')
+    const r = await app.inject({
+      method: 'POST',
+      url: '/painel/lancamentos',
+      headers: comToken(admin.corpo),
+      payload: { ficha: 'funcionarios; drop table public.abastecimentos' },
+    })
+    assert.equal(r.statusCode, 400)
+
+    const { rows } = await pg.query<{ n: number }>('select count(*)::int as n from public.abastecimentos')
+    assert.ok(rows[0]!.n >= 0, 'a tabela sobreviveu')
+  })
+
+  it('traz os lançamentos de abastecimento do período', async () => {
+    const admin = await entrar('9001', '7196')
+    const r = await app.inject({
+      method: 'POST',
+      url: '/painel/lancamentos',
+      headers: comToken(admin.corpo),
+      payload: { ficha: 'abastecimentos', de: null, ate: null },
+    })
+    assert.equal(r.statusCode, 200)
+    const linhas = r.json().linhas as Array<Record<string, unknown>>
+    assert.ok(linhas.length >= 1)
+    assert.equal(linhas[0]?.frota_numero, '1204')
+  })
+})
+
 describe('saúde', () => {
   it('responde sem exigir sessão', async () => {
     const r = await app.inject({ method: 'GET', url: '/saude' })
