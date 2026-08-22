@@ -31,6 +31,8 @@ const ORIENTACAO: Record<string, string> = {
     'O caminhão já estava no campo quando esta chegada foi lançada. Registre a saída do ciclo anterior.',
   APONTAMENTO_DUPLICADO:
     'Já existe ficha para esta frente e turno. Os lançamentos devem ir para a ficha que já foi aberta.',
+  PERIODO_FECHADO:
+    'O período já estava fechado quando esta correção chegou. Se ela precisa entrar, reabra o período em Fechamentos, corrija e feche de novo.',
   DADOS_INVALIDOS: 'O lançamento não passou nas regras do banco. Confira os valores no payload abaixo.',
   SEM_PERMISSAO: 'O funcionário não tinha permissão para este lançamento. Confira o cadastro dele.',
 }

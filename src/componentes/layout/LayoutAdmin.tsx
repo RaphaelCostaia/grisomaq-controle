@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router'
-import { AlertTriangle, BarChart3, FileSpreadsheet, LogOut, Settings, Users } from 'lucide-react'
+import { AlertTriangle, BarChart3, FileSpreadsheet, Lock, LogOut, Settings, Users } from 'lucide-react'
 import { Marca } from '@/componentes/ui/Marca'
 import { useAutenticacao } from '@/autenticacao/contexto'
 import { sair } from '@/autenticacao/login'
@@ -10,6 +10,7 @@ const SECOES = [
   { para: '/admin', rotulo: 'Painel', Icone: BarChart3, exato: true },
   { para: '/admin/conflitos', rotulo: 'Conflitos', Icone: AlertTriangle, exato: false },
   { para: '/admin/relatorios', rotulo: 'Relatórios', Icone: FileSpreadsheet, exato: false },
+  { para: '/admin/fechamentos', rotulo: 'Fechamentos', Icone: Lock, exato: false },
   { para: '/admin/funcionarios', rotulo: 'Funcionários', Icone: Users, exato: false },
   { para: '/admin/cadastros', rotulo: 'Cadastros', Icone: Settings, exato: false },
 ]

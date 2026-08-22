@@ -213,6 +213,66 @@ export async function rotasDoPainel(app: FastifyInstance): Promise<void> {
     })
   })
 
+  /**
+   * Fecha um período. Depois disso o campo não corrige mais nada dentro dele —
+   * os números já viraram folha e conferência de diesel.
+   */
+  app.post('/painel/fechamentos/travar', async (requisicao, resposta) => {
+    const identidade = exigirAdmin(requisicao, resposta)
+    if (!identidade) return
+
+    const corpo = requisicao.body as { de?: string; ate?: string; observacao?: string }
+    if (!corpo?.de || !corpo?.ate) return resposta.code(400).send({ erro: 'CORPO_INVALIDO' })
+
+    try {
+      return await comoFuncionario(identidade, async (cliente) => {
+        const { rows } = await cliente.query<{ fechamento_id: string; documentos: number }>(
+          'select * from public.fn_travar_periodo($1::date, $2::date, $3)',
+          [corpo.de, corpo.ate, corpo.observacao ?? null],
+        )
+        return rows[0]
+      })
+    } catch (erro) {
+      const mensagem = erro instanceof Error ? erro.message : ''
+      if (mensagem.includes('PERIODO_INVALIDO')) return resposta.code(400).send({ erro: 'PERIODO_INVALIDO' })
+      throw erro
+    }
+  })
+
+  app.post('/painel/fechamentos/reabrir', async (requisicao, resposta) => {
+    const identidade = exigirAdmin(requisicao, resposta)
+    if (!identidade) return
+
+    const corpo = requisicao.body as { fechamento_id?: string; motivo?: string }
+    if (!corpo?.fechamento_id) return resposta.code(400).send({ erro: 'CORPO_INVALIDO' })
+
+    try {
+      return await comoFuncionario(identidade, async (cliente) => {
+        const { rows } = await cliente.query<{ fn_destravar_periodo: number }>(
+          'select public.fn_destravar_periodo($1, $2)',
+          [corpo.fechamento_id, corpo.motivo ?? ''],
+        )
+        return { documentos: rows[0]?.fn_destravar_periodo ?? 0 }
+      })
+    } catch (erro) {
+      const mensagem = erro instanceof Error ? erro.message : ''
+      // Reabrir o mês é excepcional: sem motivo escrito, não acontece.
+      if (mensagem.includes('MOTIVO_OBRIGATORIO')) return resposta.code(400).send({ erro: 'MOTIVO_OBRIGATORIO' })
+      if (mensagem.includes('FECHAMENTO_NAO_ENCONTRADO')) return resposta.code(404).send({ erro: 'NAO_ENCONTRADO' })
+      throw erro
+    }
+  })
+
+  app.post('/painel/fechamentos', async (requisicao, resposta) => {
+    const identidade = exigirAdmin(requisicao, resposta)
+    if (!identidade) return
+
+    return comoFuncionario(identidade, async (cliente) => {
+      const { rows } = await cliente.query('select * from public.vw_fechamentos order by de desc limit 100')
+      return { fechamentos: rows }
+    })
+  })
+
   /** Lançamentos de um período, para conferência e exportação. */
   app.post('/painel/lancamentos', async (requisicao, resposta) => {
     const identidade = exigirAdmin(requisicao, resposta)

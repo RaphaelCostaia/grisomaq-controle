@@ -666,6 +666,130 @@ describe('cadastros mestres', () => {
   })
 })
 
+describe('fechamento de período', () => {
+  const hoje = () => new Date().toISOString().slice(0, 10)
+
+  it('só o escritório fecha', async () => {
+    const { corpo } = await entrar('1001', '4731')
+    const r = await app.inject({
+      method: 'POST',
+      url: '/painel/fechamentos/travar',
+      headers: comToken(corpo),
+      payload: { de: hoje(), ate: hoje() },
+    })
+    assert.equal(r.statusCode, 403)
+  })
+
+  it('recusa período invertido', async () => {
+    const admin = await entrar('9001', '7196')
+    const r = await app.inject({
+      method: 'POST',
+      url: '/painel/fechamentos/travar',
+      headers: comToken(admin.corpo),
+      payload: { de: '2026-08-31', ate: '2026-08-01' },
+    })
+    assert.equal(r.statusCode, 400)
+    assert.equal(r.json().erro, 'PERIODO_INVALIDO')
+  })
+
+  // O ponto do fechamento: depois dele o campo não corrige mais nada dentro do
+  // período. Os números já viraram folha e conferência de diesel.
+  it('trava os lançamentos e impede a correção pelo campo', async () => {
+    const admin = await entrar('9001', '7196')
+
+    const fechado = await app.inject({
+      method: 'POST',
+      url: '/painel/fechamentos/travar',
+      headers: comToken(admin.corpo),
+      payload: { de: hoje(), ate: hoje(), observacao: 'Fechamento de teste' },
+    })
+    assert.equal(fechado.statusCode, 200)
+    assert.ok((fechado.json() as { documentos: number }).documentos > 0, 'não travou nada')
+
+    const { rows } = await pg.query<{ status: string }>(
+      `select status from public.abastecimentos where data = current_date limit 1`,
+    )
+    assert.equal(rows[0]?.status, 'travado')
+
+    // O operador tenta corrigir o próprio lançamento do dia.
+    const campo = await entrar('1001', '4731')
+    const { rows: alvo } = await pg.query<{ id: string; versao: number }>(
+      `select id, versao from public.abastecimentos where data = current_date limit 1`,
+    )
+
+    const tentativa = await app.inject({
+      method: 'POST',
+      url: '/sync/push',
+      headers: comToken(campo.corpo),
+      payload: {
+        operacoes: [
+          {
+            op_id: '01920000-0000-7000-8000-0000000000e1',
+            tabela: 'abastecimentos',
+            registro_id: alvo[0]!.id,
+            tipo: 'atualizar',
+            payload: { observacao: 'tentando corrigir depois do fechamento' },
+            base_versao: alvo[0]!.versao,
+          },
+        ],
+        dispositivo_id: 'disp-a',
+        app_versao: '0.1.0',
+      },
+    })
+
+    const resultado = tentativa.json().resultados[0]
+    assert.equal(resultado.status, 'conflito', 'o campo conseguiu alterar período fechado')
+  })
+
+  it('reabrir exige motivo escrito', async () => {
+    const admin = await entrar('9001', '7196')
+    const lista = await app.inject({
+      method: 'POST',
+      url: '/painel/fechamentos',
+      headers: comToken(admin.corpo),
+      payload: {},
+    })
+    const vigente = (lista.json().fechamentos as Array<{ id: string; vigente: boolean }>).find((f) => f.vigente)
+    assert.ok(vigente)
+
+    const semMotivo = await app.inject({
+      method: 'POST',
+      url: '/painel/fechamentos/reabrir',
+      headers: comToken(admin.corpo),
+      payload: { fechamento_id: vigente.id, motivo: '   ' },
+    })
+    assert.equal(semMotivo.statusCode, 400)
+    assert.equal(semMotivo.json().erro, 'MOTIVO_OBRIGATORIO')
+
+    const comMotivo = await app.inject({
+      method: 'POST',
+      url: '/painel/fechamentos/reabrir',
+      headers: comToken(admin.corpo),
+      payload: { fechamento_id: vigente.id, motivo: 'Horímetro lançado errado na frota 1204.' },
+    })
+    assert.equal(comMotivo.statusCode, 200)
+
+    const { rows } = await pg.query<{ status: string }>(
+      `select status from public.abastecimentos where data = current_date limit 1`,
+    )
+    assert.equal(rows[0]?.status, 'finalizado', 'o lançamento não voltou a aceitar correção')
+  })
+
+  it('guarda quem reabriu e por quê', async () => {
+    const admin = await entrar('9001', '7196')
+    const lista = await app.inject({
+      method: 'POST',
+      url: '/painel/fechamentos',
+      headers: comToken(admin.corpo),
+      payload: {},
+    })
+    const reaberto = (lista.json().fechamentos as Array<Record<string, unknown>>).find((f) => f.reaberto_em)
+    assert.ok(reaberto, 'a reabertura não ficou registrada')
+    assert.equal(reaberto.reaberto_por_nome, 'Escritório')
+    assert.match(String(reaberto.motivo_reabertura), /Horímetro/)
+  })
+})
+
 describe('saúde', () => {
   it('responde sem exigir sessão', async () => {
     const r = await app.inject({ method: 'GET', url: '/saude' })

@@ -17,6 +17,7 @@ import { Conflitos } from '@/telas/admin/Conflitos'
 import { Funcionarios } from '@/telas/admin/Funcionarios'
 import { Cadastros } from '@/telas/admin/Cadastros'
 import { Relatorios } from '@/telas/admin/Relatorios'
+import { Fechamentos } from '@/telas/admin/Fechamentos'
 
 export function Rotas() {
   const { sessao, carregando } = useAutenticacao()
@@ -64,6 +65,7 @@ export function Rotas() {
           <Route path="cadastros" element={<Navigate to="/admin/cadastros/frotas" replace />} />
           <Route path="cadastros/:cadastro" element={<Cadastros />} />
           <Route path="relatorios" element={<Relatorios />} />
+          <Route path="fechamentos" element={<Fechamentos />} />
         </Route>
       )}
 

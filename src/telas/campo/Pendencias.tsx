@@ -207,6 +207,8 @@ function explicar(codigo: string): string {
       return 'Este caminhão já tem uma chegada em aberto. O escritório vai resolver.'
     case 'APONTAMENTO_DUPLICADO':
       return 'Já existe uma ficha para esta frente e turno.'
+    case 'PERIODO_FECHADO':
+      return 'O escritório já fechou este período. Correções agora passam por eles.'
     case 'VERSAO_OBSOLETA':
       return 'O aplicativo precisa ser atualizado para enviar.'
     case 'SEM_RESPOSTA':

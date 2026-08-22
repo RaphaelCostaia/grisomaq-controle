@@ -139,6 +139,7 @@ declare
   v_lista_sets     text;
   v_versao_atual   integer;
   v_autor_atual    uuid;
+  v_linhas         integer;
   v_status         public.status_operacao_sync;
   v_erro_codigo    text;
   v_erro_mensagem  text;
@@ -226,11 +227,25 @@ begin
           v_tabela, v_lista_sets, v_tabela
         ) using v_payload, v_registro_id;
 
+        -- Uma policy de RLS que recusa a linha NAO levanta excecao: o UPDATE
+        -- simplesmente atinge zero linhas. Sem esta conferencia, o servidor
+        -- responderia 'aplicada' para uma alteracao que foi descartada, e o
+        -- operador veria "enviado" no celular para algo que nunca mudou.
+        get diagnostics v_linhas = row_count;
+        if v_linhas = 0 then
+          raise exception 'ALTERACAO_RECUSADA';
+        end if;
+
       elsif v_tipo = 'excluir' then
         execute format(
           'update public.%I set excluido = true, excluido_em = now(), excluido_por = $2 where id = $1',
           v_tabela
         ) using v_registro_id, v_funcionario;
+
+        get diagnostics v_linhas = row_count;
+        if v_linhas = 0 then
+          raise exception 'ALTERACAO_RECUSADA';
+        end if;
       end if;
 
       v_status := 'aplicada';
@@ -263,7 +278,13 @@ begin
 
       when others then
         v_status := 'conflito';
-        v_erro_codigo := coalesce(nullif(sqlerrm, ''), 'ERRO_DESCONHECIDO');
+        -- O motivo mais provavel de uma alteracao ser recusada em silencio e o
+        -- periodo ja ter sido fechado pelo escritorio.
+        v_erro_codigo := case
+          when sqlerrm like '%ALTERACAO_RECUSADA%' then 'PERIODO_FECHADO'
+          when sqlerrm like '%DOCUMENTO_TRAVADO%' then 'PERIODO_FECHADO'
+          else coalesce(nullif(sqlerrm, ''), 'ERRO_DESCONHECIDO')
+        end;
         v_erro_mensagem := sqlerrm;
     end;
 
