@@ -23,6 +23,11 @@ export default defineConfig({
       injectRegister: null,
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+        // O gerador de PDF e suas fontes ficam FORA do precache: são ~1,8 MB
+        // que só o escritório usa, e ele tem internet. O gerador de Excel
+        // continua precacheado porque a exportação em campo é o caso de uso
+        // dele — o responsável manda a ficha por WhatsApp sem sinal de sobra.
+        globIgnores: ['**/pdfmake-*.js', '**/vfs_fonts-*.js'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       },
       devOptions: {

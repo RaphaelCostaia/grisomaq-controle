@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Link, useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
-import { AlertTriangle, ArrowLeft, Check, Clock, Lock, PenLine, Plus, Share2 } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Check, Clock, FileText, Lock, PenLine, Plus, Share2 } from 'lucide-react'
 import { db } from '@/dados/db'
 import { fecharApontamento, itensDoApontamento, paraRascunhoItem } from '@/dados/repositorios/apontamentos'
 import { pendenciasParaFechar } from '@/dominio/apontamento/regras'
@@ -168,15 +168,26 @@ export function ApontamentoGrade() {
         )}
 
         {itens.length > 0 && (
-          <Botao
-            barra
-            variante="secundaria"
-            disabled={exportando}
-            onClick={() => void exportarFicha(id, setExportando)}
-            icone={<Share2 aria-hidden className="size-5" />}
-          >
-            {exportando ? 'Gerando…' : 'Enviar ficha'}
-          </Botao>
+          <>
+            <Botao
+              barra
+              variante="secundaria"
+              disabled={exportando}
+              onClick={() => void exportarFicha(id, setExportando, 'excel')}
+              icone={<Share2 aria-hidden className="size-5" />}
+            >
+              {exportando ? 'Gerando…' : 'Enviar planilha'}
+            </Botao>
+            <Botao
+              barra
+              variante="secundaria"
+              disabled={exportando}
+              onClick={() => void exportarFicha(id, setExportando, 'pdf')}
+              icone={<FileText aria-hidden className="size-5" />}
+            >
+              {exportando ? 'Gerando…' : 'Enviar PDF'}
+            </Botao>
+          </>
         )}
 
         {/* A ficha fechada continua exportável — o escritório pode pedir a via
@@ -197,14 +208,30 @@ export function ApontamentoGrade() {
   )
 }
 
-/** Gera a ficha no layout da planilha original, com as 25 linhas numeradas. */
-async function exportarFicha(apontamentoId: string, setExportando: (v: boolean) => void) {
+/**
+ * Gera a ficha no layout original, com as 25 linhas numeradas.
+ *
+ * Planilha para conferir e somar; PDF para arquivar e enviar. São usos
+ * diferentes, e o escritório costuma querer os dois da mesma ficha.
+ */
+async function exportarFicha(
+  apontamentoId: string,
+  setExportando: (v: boolean) => void,
+  formato: 'excel' | 'pdf',
+) {
   setExportando(true)
   try {
-    const { exportarApontamento, entregarArquivo } = await import('@/relatorios/exportar')
-    const blob = await exportarApontamento(apontamentoId)
+    const relatorios = await import('@/relatorios/exportar')
+    const blob =
+      formato === 'pdf'
+        ? await relatorios.exportarApontamentoPdf(apontamentoId)
+        : await relatorios.exportarApontamento(apontamentoId)
     if (!blob) throw new Error('Ficha não encontrada neste aparelho.')
-    const destino = await entregarArquivo(blob, 'APONTAMENTO.xlsx')
+
+    const destino = await relatorios.entregarArquivo(
+      blob,
+      'APONTAMENTO.' + (formato === 'pdf' ? 'pdf' : 'xlsx'),
+    )
     toast.success(destino === 'compartilhado' ? 'Ficha enviada.' : 'Ficha salva no aparelho.')
   } catch (erro) {
     toast.error(erro instanceof Error ? erro.message : 'Não foi possível gerar a ficha.')

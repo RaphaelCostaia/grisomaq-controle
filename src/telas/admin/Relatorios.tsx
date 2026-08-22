@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { Download, Search } from 'lucide-react'
+import { Download, FileText, Search } from 'lucide-react'
 import { carregarLancamentos } from '@/dados/painel'
 import { CabecalhoPainel } from '@/componentes/layout/LayoutAdmin'
 import { Botao } from '@/componentes/ui/Botao'
@@ -127,31 +127,52 @@ export function Relatorios() {
    * linhas já desnormalizadas e não sabem de onde vieram. É o que evita ter dois
    * layouts que divergem na primeira correção.
    */
-  async function exportar() {
+  async function exportar(formato: 'excel' | 'pdf') {
     if (!linhas || linhas.length === 0) return
     setExportando(true)
     try {
-      const ExcelJS = (await import('exceljs')).default
-      const wb = new ExcelJS.Workbook()
       const periodo = dataBr(de) + ' a ' + dataBr(ate)
       const opcoes = { versaoApp: versaoDoApp, periodo }
+      const nome = ficha.titulo.toUpperCase() + ' ' + de + ' a ' + ate
+
+      if (ficha.chave === 'apontamentos') {
+        // O layout do apontamento é de 25 linhas por documento, não por
+        // período. Gerar um consolidado aqui produziria algo que não é a ficha.
+        toast.error('A ficha de apontamento é exportada uma a uma, pela tela do turno.')
+        return
+      }
+
+      if (formato === 'pdf') {
+        if (ficha.chave !== 'abastecimentos') {
+          toast.error('Por enquanto só o abastecimento sai em PDF por período.')
+          return
+        }
+        const [{ montarPdfAbastecimento }, { gerarPdf }] = await Promise.all([
+          import('@/relatorios/pdf/ficha3-abastecimento'),
+          import('@/relatorios/pdf/base'),
+        ])
+        const blob = await gerarPdf(montarPdfAbastecimento(linhas.map(paraLinhaAbastecimento), opcoes))
+        await entregarArquivo(blob, nome + '.pdf')
+        toast.success('PDF gerado.')
+        return
+      }
+
+      const ExcelJS = (await import('exceljs')).default
+      const wb = new ExcelJS.Workbook()
 
       if (ficha.chave === 'abastecimentos') {
         const { montarFichaAbastecimento } = await import('@/relatorios/excel/ficha3-abastecimento')
         montarFichaAbastecimento(wb, linhas.map(paraLinhaAbastecimento), opcoes)
-      } else if (ficha.chave === 'caminhoes') {
+      } else {
         const { montarFichaCaminhoes } = await import('@/relatorios/excel/ficha1-caminhoes')
         montarFichaCaminhoes(wb, linhas.map(paraLinhaCaminhao), { ...opcoes, safra: de.slice(0, 4) })
-      } else {
-        toast.error('A ficha de apontamento é exportada por ficha, na tela do turno.')
-        return
       }
 
       const buffer = await wb.xlsx.writeBuffer()
       const blob = new Blob([buffer], {
         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       })
-      await entregarArquivo(blob, ficha.titulo.toUpperCase() + ' ' + de + ' a ' + ate + '.xlsx')
+      await entregarArquivo(blob, nome + '.xlsx')
       toast.success('Planilha gerada.')
     } catch (erro) {
       toast.error(erro instanceof Error ? erro.message : 'Não foi possível gerar.')
@@ -197,11 +218,20 @@ export function Relatorios() {
 
           <Botao
             variante="secundaria"
-            onClick={() => void exportar()}
+            onClick={() => void exportar('excel')}
             disabled={exportando || !linhas || linhas.length === 0}
             icone={<Download aria-hidden className="size-4" />}
           >
-            {exportando ? 'Gerando…' : 'Exportar planilha'}
+            {exportando ? 'Gerando…' : 'Planilha'}
+          </Botao>
+
+          <Botao
+            variante="secundaria"
+            onClick={() => void exportar('pdf')}
+            disabled={exportando || !linhas || linhas.length === 0}
+            icone={<FileText aria-hidden className="size-4" />}
+          >
+            PDF
           </Botao>
         </div>
 

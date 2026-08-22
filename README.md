@@ -102,12 +102,19 @@ A coluna de assinatura traz a trilha real do aceite, e diz quando a revalidaçã
 no servidor ainda não aconteceu — uma assinatura só conferida no celular vale
 menos, e omitir a diferença seria afirmar mais do que se sabe.
 
+Sai em **Excel e em PDF**. São usos diferentes: a planilha serve para conferir e
+somar, o PDF para arquivar e enviar. Como o PDF é o documento que substitui a
+via de papel no arquivo, é nele que a coluna de assinatura mais importa.
+
 A exportação roda **no celular**, a partir do que está gravado localmente: o
 responsável fecha o turno na frente de colheita e manda a ficha por WhatsApp na
-mesma hora, sem esperar a fila subir. O ExcelJS entra por `import()` dinâmico e
-fica num chunk próprio, mas é precacheado pelo service worker de propósito —
-sem isso a exportação exigiria sinal, justamente o que falta em campo. O preço é
-uma instalação inicial maior, paga uma vez, no escritório.
+mesma hora, sem esperar a fila subir.
+
+Os dois geradores entram por `import()` dinâmico, mas só o **ExcelJS é
+precacheado** pelo service worker: é ele que precisa funcionar sem sinal, porque
+o caso de uso dele é o campo. O gerador de PDF e suas fontes somam ~1,8 MB e são
+baixados sob demanda — precacheá-los cobraria de todo celular de campo o custo
+de um recurso que só o escritório usa, e o escritório tem internet.
 
 Os arquivos de exemplo saem em `exemplos-relatorio/` ao rodar os testes.
 

@@ -158,6 +158,24 @@ export async function exportarApontamento(apontamentoId: string): Promise<Blob |
   return paraBlob(wb)
 }
 
+/**
+ * A mesma ficha em PDF.
+ *
+ * O Excel serve para conferir e somar; o PDF serve para arquivar e enviar. Como
+ * é o documento que substitui a via de papel no arquivo, é nele que a coluna de
+ * assinatura mais importa.
+ */
+export async function exportarApontamentoPdf(apontamentoId: string): Promise<Blob | null> {
+  const dados = await dadosDoApontamento(apontamentoId)
+  if (!dados) return null
+
+  const [{ montarPdfApontamento }, { gerarPdf }] = await Promise.all([
+    import('./pdf/ficha2-apontamento'),
+    import('./pdf/base'),
+  ])
+  return gerarPdf(montarPdfApontamento(dados.cabecalho, dados.linhas, opcoes()))
+}
+
 // --- Ficha 3 -----------------------------------------------------------------
 
 export async function linhasDeAbastecimento(data = hojeOperacional()): Promise<LinhaAbastecimento[]> {
@@ -194,6 +212,15 @@ export async function exportarAbastecimento(data = hojeOperacional()): Promise<B
   ])
   montarFichaAbastecimento(wb, linhas, opcoes(dataBr(data)))
   return paraBlob(wb)
+}
+
+export async function exportarAbastecimentoPdf(data = hojeOperacional()): Promise<Blob> {
+  const [linhas, { montarPdfAbastecimento }, { gerarPdf }] = await Promise.all([
+    linhasDeAbastecimento(data),
+    import('./pdf/ficha3-abastecimento'),
+    import('./pdf/base'),
+  ])
+  return gerarPdf(montarPdfAbastecimento(linhas, opcoes(dataBr(data))))
 }
 
 // --- Entrega -----------------------------------------------------------------
