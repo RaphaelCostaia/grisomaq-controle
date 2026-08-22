@@ -539,6 +539,133 @@ describe('painel do escritório', () => {
   })
 })
 
+describe('cadastros mestres', () => {
+  it('recusa cadastro fora do mapa fechado', async () => {
+    const admin = await entrar('9001', '7196')
+    for (const cadastro of ['funcionarios', 'sync_operacoes', 'frotas; drop table public.frotas']) {
+      const r = await app.inject({
+        method: 'POST',
+        url: '/painel/cadastros/listar',
+        headers: comToken(admin.corpo),
+        payload: { cadastro },
+      })
+      assert.equal(r.statusCode, 400, 'aceitou cadastro não declarado: ' + cadastro)
+    }
+
+    const { rows } = await pg.query<{ n: number }>('select count(*)::int as n from public.frotas')
+    assert.ok(rows[0]!.n >= 2, 'a tabela sobreviveu')
+  })
+
+  it('cadastra e edita uma frota', async () => {
+    const admin = await entrar('9001', '7196')
+
+    const criada = await app.inject({
+      method: 'POST',
+      url: '/painel/cadastros/salvar',
+      headers: comToken(admin.corpo),
+      payload: {
+        cadastro: 'frotas',
+        registro: {
+          numero: '3120',
+          descricao: 'Trator Valtra BH180',
+          tipo: 'trator',
+          tem_horimetro_motor: true,
+          capacidade_tanque_litros: 290,
+        },
+      },
+    })
+    assert.equal(criada.statusCode, 200)
+    const frota = criada.json().registro as { id: string; numero: string }
+    assert.equal(frota.numero, '3120')
+
+    const editada = await app.inject({
+      method: 'POST',
+      url: '/painel/cadastros/salvar',
+      headers: comToken(admin.corpo),
+      payload: { cadastro: 'frotas', id: frota.id, registro: { descricao: 'Trator Valtra BH180 (revisado)' } },
+    })
+    assert.equal(editada.statusCode, 200)
+    assert.equal((editada.json().registro as { descricao: string }).descricao, 'Trator Valtra BH180 (revisado)')
+  })
+
+  it('ignora coluna não declarada em vez de gravá-la', async () => {
+    const admin = await entrar('9001', '7196')
+    const r = await app.inject({
+      method: 'POST',
+      url: '/painel/cadastros/salvar',
+      headers: comToken(admin.corpo),
+      payload: {
+        cadastro: 'frotas',
+        registro: { numero: '4000', descricao: 'Frota teste', tipo: 'outro', criado_em: '1999-01-01' },
+      },
+    })
+    assert.equal(r.statusCode, 200)
+    const criada = r.json().registro as { criado_em: string }
+    assert.ok(!String(criada.criado_em).startsWith('1999'), 'gravou coluna que não estava declarada')
+  })
+
+  it('cobra os campos obrigatórios', async () => {
+    const admin = await entrar('9001', '7196')
+    const r = await app.inject({
+      method: 'POST',
+      url: '/painel/cadastros/salvar',
+      headers: comToken(admin.corpo),
+      payload: { cadastro: 'frotas', registro: { numero: '5000' } },
+    })
+    assert.equal(r.statusCode, 400)
+    assert.equal(r.json().erro, 'CAMPOS_OBRIGATORIOS')
+    assert.deepEqual(r.json().campos, ['descricao', 'tipo'])
+  })
+
+  // Faixa sobreposta é o erro que mais importa aqui: é ela que garante que dois
+  // celulares offline nunca emitam o mesmo número de ficha.
+  it('recusa faixa de bloco sobreposta, com motivo legível', async () => {
+    const admin = await entrar('9001', '7196')
+    const r = await app.inject({
+      method: 'POST',
+      url: '/painel/cadastros/salvar',
+      headers: comToken(admin.corpo),
+      payload: { cadastro: 'blocos', registro: { numero_inicial: 6940, numero_final: 6990 } },
+    })
+    assert.equal(r.statusCode, 409)
+    assert.equal(r.json().erro, 'FAIXA_SOBREPOSTA')
+  })
+
+  it('aceita faixa que não colide', async () => {
+    const admin = await entrar('9001', '7196')
+    const r = await app.inject({
+      method: 'POST',
+      url: '/painel/cadastros/salvar',
+      headers: comToken(admin.corpo),
+      payload: { cadastro: 'blocos', registro: { numero_inicial: 7001, numero_final: 7050 } },
+    })
+    assert.equal(r.statusCode, 200)
+  })
+
+  it('ajusta um parâmetro de validação sem deploy', async () => {
+    const admin = await entrar('9001', '7196')
+    const r = await app.inject({
+      method: 'POST',
+      url: '/painel/parametros/salvar',
+      headers: comToken(admin.corpo),
+      payload: { chave: 'km_max_turno', valor: 500 },
+    })
+    assert.equal(r.statusCode, 200)
+    assert.equal((r.json().parametro as { valor: number }).valor, 500)
+  })
+
+  it('não deixa o campo mexer em cadastro', async () => {
+    const { corpo } = await entrar('1001', '4731')
+    const r = await app.inject({
+      method: 'POST',
+      url: '/painel/cadastros/salvar',
+      headers: comToken(corpo),
+      payload: { cadastro: 'frotas', registro: { numero: '9999', descricao: 'x', tipo: 'outro' } },
+    })
+    assert.equal(r.statusCode, 403)
+  })
+})
+
 describe('saúde', () => {
   it('responde sem exigir sessão', async () => {
     const r = await app.inject({ method: 'GET', url: '/saude' })

@@ -15,6 +15,8 @@ import { LayoutAdmin } from '@/componentes/layout/LayoutAdmin'
 import { Dashboard } from '@/telas/admin/Dashboard'
 import { Conflitos } from '@/telas/admin/Conflitos'
 import { Funcionarios } from '@/telas/admin/Funcionarios'
+import { Cadastros } from '@/telas/admin/Cadastros'
+import { Relatorios } from '@/telas/admin/Relatorios'
 
 export function Rotas() {
   const { sessao, carregando } = useAutenticacao()
@@ -59,6 +61,9 @@ export function Rotas() {
           <Route index element={<Dashboard />} />
           <Route path="conflitos" element={<Conflitos />} />
           <Route path="funcionarios" element={<Funcionarios />} />
+          <Route path="cadastros" element={<Navigate to="/admin/cadastros/frotas" replace />} />
+          <Route path="cadastros/:cadastro" element={<Cadastros />} />
+          <Route path="relatorios" element={<Relatorios />} />
         </Route>
       )}
 

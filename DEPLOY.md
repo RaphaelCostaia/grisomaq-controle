@@ -115,9 +115,14 @@ select public.fn_definir_pin(
 );
 ```
 
-Desse ponto em diante, o escritório provisiona os demais por
-`POST /admin/provisionar-funcionario`, que devolve o PIN inicial uma única vez
-para ser impresso e entregue em mãos.
+Desse ponto em diante tudo é feito pelo painel: entre em
+`https://controle.seudominio.com.br` com o código `9001`, troque o PIN, e use
+**Cadastros** para registrar frotas, fazendas, frentes, turnos e os blocos de
+numeração, e **Funcionários** para gerar o PIN de cada um.
+
+A ordem importa: enquanto os cadastros estiverem vazios, os seletores do app de
+campo abrem sem opção, e sem um bloco de numeração alocado ao aparelho nenhum
+abastecimento pode ser lançado.
 
 ## 6. Conferir
 

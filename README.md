@@ -123,8 +123,14 @@ credencial para lembrar. O papel no cadastro é que decide onde a pessoa cai.
 - **Lançamentos travados** — o que o campo preencheu e o banco recusou, com o
   payload do operador e o que costuma resolver cada tipo de conflito. Marcar
   como resolvido só tira da fila; o lançamento em si é corrigido pela ficha.
+- **Relatórios** — consulta por período e exportação no layout das fichas. Usa
+  os mesmos montadores de planilha que o celular, então o arquivo sai idêntico
+  independente de quem gerou.
 - **Funcionários** — cadastro e provisionamento de PIN. O PIN inicial aparece
   uma vez, para ser impresso e entregue em mãos.
+- **Cadastros** — frotas, caminhões, fazendas, frentes, turnos, líderes e blocos
+  de numeração. Enquanto estiverem vazios, os seletores do app de campo abrem
+  sem opção — é por aqui que a operação começa.
 
 As cores das séries dos gráficos foram validadas para daltonismo contra o fundo
 do painel, e evitam de propósito o carmim e as cores de estado: carmim é
