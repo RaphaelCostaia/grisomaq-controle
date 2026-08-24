@@ -1,6 +1,11 @@
 import { CHAVES_META, db, gravarMeta, lerMeta } from '../db'
 import { chamar } from '../api'
 
+interface ParametroBruto {
+  chave: string
+  valor: unknown
+}
+
 interface RespostaPull {
   servidor_agora: string
   mestres: Record<string, unknown[]>
@@ -23,6 +28,25 @@ export async function baixarAlteracoes(): Promise<{ baixados: number; erro: stri
   } catch (erro) {
     return { baixados: 0, erro: erro instanceof Error ? erro.message : String(erro) }
   }
+  let baixados = 0
+
+  try {
+    baixados = await aplicar(resposta)
+  } catch (erro) {
+    // O detalhe tecnico serve para diagnostico, nao para o operador: ele nao
+    // pode fazer nada com "bulkPut(): 2 of 2 operations failed". O que ele
+    // precisa saber e que os lancamentos DELE continuam seguros e subindo.
+    console.error('[sync] falha ao gravar o pull', erro)
+    return {
+      baixados: 0,
+      erro: 'Não foi possível receber as atualizações do escritório. Seus lançamentos continuam salvos e serão enviados normalmente.',
+    }
+  }
+
+  return { baixados, erro: null }
+}
+
+async function aplicar(resposta: RespostaPull): Promise<number> {
   let baixados = 0
 
   await db.transaction(
@@ -54,8 +78,16 @@ export async function baixarAlteracoes(): Promise<{ baixados: number; erro: stri
         baixados += m.ultimas_leituras.length
       }
 
-      if (Array.isArray(m.parametros)) {
-        await gravarMeta('parametros', m.parametros)
+      // Os parametros vem FILTRADOS pela marca d'agua (so os que mudaram),
+      // entao gravar a lista recebida por cima apagaria todos os outros: bastava
+      // um segundo pull sem mudanca nenhuma para o celular ficar sem nenhum
+      // limiar e cair nos padroes de fabrica, ignorando o que o escritorio
+      // configurou. Mesclar por chave e o que mantem o conjunto completo.
+      if (Array.isArray(m.parametros) && m.parametros.length > 0) {
+        const atuais = (await lerMeta<ParametroBruto[]>('parametros')) ?? []
+        const porChave = new Map(atuais.map((p) => [p.chave, p]))
+        for (const p of m.parametros as ParametroBruto[]) porChave.set(p.chave, p)
+        await gravarMeta('parametros', [...porChave.values()])
       }
 
       const t = resposta.transacionais
@@ -64,11 +96,14 @@ export async function baixarAlteracoes(): Promise<{ baixados: number; erro: stri
       baixados += await mesclarTransacional(db.apontamento_itens, t.apontamento_itens)
       baixados += await mesclarTransacional(db.abastecimentos, t.abastecimentos)
 
+      // A marca d'agua so avanca junto com os dados, dentro da mesma transacao:
+      // se a gravacao falhar, ela nao avanca e o proximo pull tenta de novo o
+      // mesmo intervalo. Avancar por fora perderia as linhas em silencio.
       await db.meta.put({ chave: CHAVES_META.ultimoPull, valor: resposta.servidor_agora })
     },
   )
 
-  return { baixados, erro: null }
+  return baixados
 }
 
 type TabelaDexie = { bulkPut(itens: never[]): Promise<unknown>; get(chave: string): Promise<unknown> }

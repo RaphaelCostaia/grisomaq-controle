@@ -51,7 +51,10 @@ export function apiLocal(): Plugin {
   let processo: ChildProcess | null = null
   let porta = PORTA_PREFERIDA
 
-  const desligado = () => process.env.SEM_API_LOCAL === '1'
+  // O vitest levanta um dev server interno para transformar os módulos, o que
+  // dispara `configureServer` — sem esta guarda cada rodada de teste subiria
+  // uma API e migraria um banco inteiro à toa.
+  const desligado = () => process.env.SEM_API_LOCAL === '1' || process.env.VITEST !== undefined
 
   const encerrar = () => {
     if (!processo || processo.killed) return

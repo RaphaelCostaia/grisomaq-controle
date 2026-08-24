@@ -103,6 +103,25 @@ export class BaseGrisomaq extends Dexie {
       pin_verificadores: '&funcionario_id',
       meta: '&chave',
     })
+
+    /**
+     * A base local ESPELHA o servidor, e um espelho nao pode se recusar a
+     * representar o que existe do outro lado. `&numero_documento` e
+     * `&[data+frente_id+turno_id]` faziam exatamente isso: bastava o servidor
+     * mandar um numero que ja existia aqui (troca de aparelho, conflito
+     * resolvido pelo escritorio, reinstalacao) para o `bulkPut` estourar
+     * ConstraintError e ABORTAR A TRANSACAO INTEIRA do pull - levando junto os
+     * mestres, os blocos e a marca d'agua. O celular parava de receber
+     * qualquer atualizacao e nao se recuperava sozinho.
+     *
+     * A defesa contra numero repetido continua onde ela pertence e ja e
+     * testada: a validacao de dominio (DOC_JA_USADO / APONTAMENTO_DUPLICADO) e
+     * a constraint do Postgres, que e a autoridade de verdade.
+     */
+    this.version(2).stores({
+      abastecimentos: '&id, data, numero_documento, frota_id, comboio_frota_id, _sync, [data+_sync]',
+      apontamentos: '&id, data, [data+frente_id+turno_id], _sync',
+    })
   }
 }
 

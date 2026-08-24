@@ -58,14 +58,29 @@ export function validarAbastecimento(r: RascunhoAbastecimento, ctx: ContextoAbas
   // --- Numero do documento --------------------------------------------------
   // O numero e a identidade da via de papel. Sem faixa alocada o dispositivo nao
   // emite nada: e o que impede dois celulares offline de gerarem o mesmo numero.
-  if (r.numero_documento === null) {
-    a.push(bloqueante('DOC_AUSENTE', 'numero_documento', 'Informe o número da ficha.'))
-  } else if (!ctx.bloco) {
+  //
+  // O numero NAO e digitado — sai da faixa do celular. Entao "numero ausente"
+  // nunca significa "faltou preencher": significa que a faixa nao existe ou que
+  // ela acabou. Checar a faixa ANTES do numero e o que faz a tela dizer o que o
+  // operador precisa fazer, em vez de pedir um campo que nao existe na tela.
+  if (!ctx.bloco) {
     a.push(
       bloqueante(
         'BLOCO_AUSENTE',
         'numero_documento',
         'Este celular não tem faixa de numeração. Peça um bloco ao escritório.',
+      ),
+    )
+  } else if (r.numero_documento === null) {
+    a.push(
+      bloqueante(
+        'BLOCO_ESGOTADO',
+        'numero_documento',
+        'A faixa deste celular (' +
+          ctx.bloco.numero_inicial +
+          ' a ' +
+          ctx.bloco.numero_final +
+          ') acabou. Peça outro bloco ao escritório.',
       ),
     )
   } else if (r.numero_documento < ctx.bloco.numero_inicial || r.numero_documento > ctx.bloco.numero_final) {

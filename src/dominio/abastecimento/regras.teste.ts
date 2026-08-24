@@ -115,9 +115,21 @@ describe('número da ficha', () => {
     expect(codigos(r)).toContain('DOC_JA_USADO')
   })
 
-  it('bloqueia quando o celular não tem faixa alocada', () => {
-    const r = validarAbastecimento(rascunho(), contexto({ bloco: null }))
+  // Sem faixa o repositório não tem de onde tirar número, então os dois vêm
+  // nulos juntos — era esta combinação que faltava no teste, e por isso a tela
+  // pedia "informe o número da ficha" num campo que o operador não pode digitar.
+  it('bloqueia quando o celular não tem faixa alocada, explicando o que fazer', () => {
+    const r = validarAbastecimento(rascunho({ numero_documento: null }), contexto({ bloco: null }))
     expect(codigos(r)).toContain('BLOCO_AUSENTE')
+    const achado = r.achados.find((x) => x.codigo === 'BLOCO_AUSENTE')
+    expect(achado?.mensagem).toContain('Peça um bloco ao escritório')
+  })
+
+  it('distingue faixa esgotada de faixa inexistente', () => {
+    const r = validarAbastecimento(rascunho({ numero_documento: null }), contexto())
+    expect(codigos(r)).toContain('BLOCO_ESGOTADO')
+    expect(codigos(r)).not.toContain('BLOCO_AUSENTE')
+    expect(r.achados.find((x) => x.codigo === 'BLOCO_ESGOTADO')?.mensagem).toContain('acabou')
   })
 
   it('avisa quando o bloco está acabando, sem impedir o lançamento', () => {
