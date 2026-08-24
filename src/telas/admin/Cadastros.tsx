@@ -13,6 +13,7 @@ import { carregarFuncionarios } from '@/dados/painel'
 import { ErroApi } from '@/dados/api'
 import { CabecalhoPainel } from '@/componentes/layout/LayoutAdmin'
 import { Botao } from '@/componentes/ui/Botao'
+import { Parametros } from './Parametros'
 import { cls } from '@/utilitarios/classes'
 
 type Registro = Record<string, unknown>
@@ -78,9 +79,20 @@ export function Cadastros() {
 
   const colunas = definicao.campos.filter((c) => c.naLista)
 
+  // Parâmetro não é cadastro: não se cria nem se apaga. A aba mora na mesma
+  // navegação porque é lá que o escritório procura, mas o corpo é outro.
+  const ehParametros = chave === 'parametros'
+
   return (
     <>
-      <CabecalhoPainel titulo="Cadastros" descricao={definicao.descricao} />
+      <CabecalhoPainel
+        titulo="Cadastros"
+        descricao={
+          ehParametros
+            ? 'Os limiares que decidem quando o app avisa, exige justificativa ou bloqueia.'
+            : definicao.descricao
+        }
+      />
 
       <nav className="flex flex-wrap gap-1 border-b-2 border-[var(--cor-borda-forte)] bg-[var(--cor-fundo)] px-8 py-2">
         {CADASTROS.map((c) => (
@@ -99,8 +111,24 @@ export function Cadastros() {
             {c.titulo}
           </NavLink>
         ))}
+        <NavLink
+          to="/admin/cadastros/parametros"
+          className={({ isActive }) =>
+            cls(
+              'px-3 py-1.5 text-sm font-bold',
+              isActive
+                ? 'bg-marca-600 text-white'
+                : 'text-[var(--cor-texto-suave)] hover:bg-[var(--cor-superficie)]',
+            )
+          }
+        >
+          Parâmetros
+        </NavLink>
       </nav>
 
+      {ehParametros ? (
+        <Parametros />
+      ) : (
       <div className="p-8">
         <div className="mb-4 flex justify-end">
           <Botao onClick={() => setEditando(valorInicial(definicao.campos))} icone={<Plus aria-hidden className="size-4" />}>
@@ -155,6 +183,7 @@ export function Cadastros() {
           </table>
         )}
       </div>
+      )}
 
       {editando && (
         <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 p-6">

@@ -209,6 +209,17 @@ export const salvarCadastro = (cadastro: string, registro: Record<string, unknow
     corpo: id ? { cadastro, id, registro } : { cadastro, registro },
   })
 
+/**
+ * Grava um limiar de validação.
+ *
+ * Parâmetro não é cadastro: não se cria nem se apaga, só se ajusta. Por isso
+ * tem endpoint próprio, que só aceita chave existente.
+ */
+export const salvarParametro = (chave: string, valor: unknown) =>
+  chamar<{ parametro: { chave: string; valor: unknown } }>('/painel/parametros/salvar', {
+    corpo: { chave, valor },
+  })
+
 /** Mensagens para os erros que o banco recusa por regra de negócio. */
 export const MOTIVO_DA_RECUSA: Record<string, string> = {
   FAIXA_SOBREPOSTA:
