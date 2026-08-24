@@ -1,8 +1,11 @@
+import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
-import { AlertTriangle, ArrowLeft, Check, Clock, RefreshCw, Share2 } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Check, Clock, LogOut, RefreshCw, Share2 } from 'lucide-react'
 import { db, type ItemOutbox } from '@/dados/db'
+import { sair } from '@/autenticacao/login'
+import { useAutenticacao } from '@/autenticacao/contexto'
 import { sincronizarAgora } from '@/dados/sincronizacao/motor'
 import { useEstadoSync } from '@/dados/sincronizacao/estado'
 import { MAX_TENTATIVAS } from '@/dados/sincronizacao/backoff'
@@ -29,6 +32,8 @@ const NOME_DA_TABELA: Record<string, string> = {
 export function Pendencias() {
   const navegar = useNavigate()
   const { situacao, ultimoSyncOk } = useEstadoSync()
+  const { sessao, definirSessao } = useAutenticacao()
+  const [confirmandoSaida, setConfirmandoSaida] = useState(false)
 
   const fila = useLiveQuery(
     async () => (await db.outbox.toArray()).sort((a, b) => a.op_id.localeCompare(b.op_id)),
@@ -138,7 +143,58 @@ export function Pendencias() {
             Enviar fila ao escritório
           </Botao>
         )}
+
+        {/*
+          Sair vive aqui, e não numa aba, porque é assunto do aparelho e não da
+          operação — e porque é aqui que o operador vê se ainda há coisa para
+          enviar antes de passar o celular adiante.
+        */}
+        <button
+          type="button"
+          onClick={() => setConfirmandoSaida(true)}
+          className="flex w-full items-center justify-center gap-2 py-3 text-base font-bold text-[var(--cor-texto-suave)] underline"
+        >
+          <LogOut aria-hidden className="size-5" />
+          Sair ({sessao?.codigo})
+        </button>
       </div>
+
+      {confirmandoSaida && (
+        <div className="fixed inset-0 z-50 flex items-end bg-black/50 p-4">
+          <div className="w-full border-2 border-[var(--cor-borda-forte)] bg-[var(--cor-fundo)] p-5">
+            <h2 className="text-lg font-bold">Sair do aplicativo?</h2>
+
+            {fila.length > 0 ? (
+              <p className="mt-2 text-base">
+                Ainda há {fila.length === 1 ? '1 lançamento' : fila.length + ' lançamentos'} esperando
+                envio. Eles ficam guardados no celular e sobem quando a próxima pessoa entrar — mas se
+                puder, envie agora antes de sair.
+              </p>
+            ) : (
+              <p className="mt-2 text-base">
+                Tudo já foi enviado. Quem entrar depois começa do zero, com o código e o PIN dela.
+              </p>
+            )}
+
+            <div className="mt-5 space-y-2">
+              <Botao barra variante="secundaria" onClick={() => setConfirmandoSaida(false)}>
+                Continuar no app
+              </Botao>
+              <Botao
+                barra
+                onClick={() => {
+                  void sair().then(() => {
+                    definirSessao(null)
+                    navegar('/', { replace: true })
+                  })
+                }}
+              >
+                Sair mesmo assim
+              </Botao>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
