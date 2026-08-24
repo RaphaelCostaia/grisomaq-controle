@@ -143,16 +143,20 @@ export function Relatorios() {
       }
 
       if (formato === 'pdf') {
-        if (ficha.chave !== 'abastecimentos') {
-          toast.error('Por enquanto só o abastecimento sai em PDF por período.')
-          return
-        }
-        const [{ montarPdfAbastecimento }, { gerarPdf }] = await Promise.all([
-          import('@/relatorios/pdf/ficha3-abastecimento'),
-          import('@/relatorios/pdf/base'),
-        ])
-        const blob = await gerarPdf(montarPdfAbastecimento(linhas.map(paraLinhaAbastecimento), opcoes))
-        await entregarArquivo(blob, nome + '.pdf')
+        const { gerarPdf } = await import('@/relatorios/pdf/base')
+
+        const definicao =
+          ficha.chave === 'abastecimentos'
+            ? (await import('@/relatorios/pdf/ficha3-abastecimento')).montarPdfAbastecimento(
+                linhas.map(paraLinhaAbastecimento),
+                opcoes,
+              )
+            : (await import('@/relatorios/pdf/ficha1-caminhoes')).montarPdfCaminhoes(
+                linhas.map(paraLinhaCaminhao),
+                { ...opcoes, safra: de.slice(0, 4) },
+              )
+
+        await entregarArquivo(await gerarPdf(definicao), nome + '.pdf')
         toast.success('PDF gerado.')
         return
       }

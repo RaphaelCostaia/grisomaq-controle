@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { Content, ContentTable, TDocumentDefinitions } from 'pdfmake/interfaces'
+import { montarPdfCaminhoes } from './ficha1-caminhoes'
 import { montarPdfApontamento } from './ficha2-apontamento'
 import { montarPdfAbastecimento } from './ficha3-abastecimento'
-import type { CabecalhoApontamento, LinhaAbastecimento, LinhaApontamento } from '../tipos'
+import type {
+  CabecalhoApontamento,
+  LinhaAbastecimento,
+  LinhaApontamento,
+  LinhaCaminhao,
+} from '../tipos'
 
 /**
  * Verifica a estrutura do PDF sem renderizá-lo.
@@ -227,5 +233,77 @@ describe('PDF do abastecimento', () => {
 
   it('traz o período no cabeçalho', () => {
     expect(textos(doc).some((x) => x.includes('01/08/2026 a 22/08/2026'))).toBe(true)
+  })
+})
+
+const CAMINHOES: LinhaCaminhao[] = [
+  {
+    data: '2026-08-22',
+    fazenda_codigo: 'FZ01',
+    caminhao_numero: '77',
+    carreta1_numero: '101',
+    carreta2_numero: '102',
+    chegada: '08:14',
+    saida: '09:02',
+    permanencia_minutos: 48,
+    lider_nome: 'Marcos Pereira',
+  },
+  {
+    data: '2026-08-22',
+    fazenda_codigo: 'FZ02',
+    caminhao_numero: '82',
+    carreta1_numero: '103',
+    carreta2_numero: null,
+    chegada: '16:30',
+    saida: null,
+    permanencia_minutos: null,
+    lider_nome: null,
+  },
+]
+
+describe('PDF de caminhões', () => {
+  const doc = montarPdfCaminhoes(CAMINHOES, { ...OPCOES, safra: '2026' })
+
+  // "HORÁRIO CAMPO" é a única coluna composta da ficha, e é justamente a que
+  // carrega o número que interessa. O cabeçalho de duas alturas do papel é
+  // reproduzido com célula mesclada.
+  it('reproduz o cabeçalho de duas alturas do original', () => {
+    const primeira = linha(doc, 0) as unknown as Array<{ text?: string; colSpan?: number; rowSpan?: number }>
+    const segunda = linha(doc, 1) as unknown as Array<{ text?: string }>
+
+    expect(primeira.map((c) => c.text).filter(Boolean)).toEqual([
+      'DATA',
+      'CÓDIGO',
+      'Nº CAMINHÃO',
+      'Nº 1ª CARRETA',
+      'Nº 2ª CARRETA',
+      'HORÁRIO CAMPO',
+      'LÍDER DO MALHADOR',
+      'PERMANÊNCIA',
+    ])
+    expect(primeira.find((c) => c.text === 'HORÁRIO CAMPO')?.colSpan).toBe(2)
+    expect(segunda.map((c) => c.text).filter(Boolean)).toEqual(['CHEGADA', 'SAÍDA'])
+  })
+
+  it('sai em paisagem', () => {
+    expect(doc.pageOrientation).toBe('landscape')
+  })
+
+  // O caminhão continua no campo enquanto o relatório é impresso: inventar uma
+  // permanência ali seria afirmar um número que ainda não existe.
+  it('não inventa saída nem permanência para o ciclo ainda aberto', () => {
+    const aberto = linha(doc, 3)
+    expect(aberto[6]?.text).toBe('')
+    expect(aberto[8]?.text).toBe('no campo')
+  })
+
+  it('fecha com a permanência média, que ninguém somava à mão', () => {
+    const t = textos(doc)
+    expect(t.some((x) => x.includes('Ciclos concluídos: 1'))).toBe(true)
+    expect(t.some((x) => x.includes('Permanência média: 48min'))).toBe(true)
+  })
+
+  it('leva a safra no título', () => {
+    expect(textos(doc).some((x) => x.includes('CONTROLE DE CAMINHÕES - SAFRA 2026'))).toBe(true)
   })
 })

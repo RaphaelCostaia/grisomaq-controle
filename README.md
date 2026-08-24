@@ -102,8 +102,9 @@ A coluna de assinatura traz a trilha real do aceite, e diz quando a revalidaçã
 no servidor ainda não aconteceu — uma assinatura só conferida no celular vale
 menos, e omitir a diferença seria afirmar mais do que se sabe.
 
-Sai em **Excel e em PDF**. São usos diferentes: a planilha serve para conferir e
-somar, o PDF para arquivar e enviar. Como o PDF é o documento que substitui a
+Sai em **Excel e em PDF** — caminhões, abastecimento e apontamento. São usos
+diferentes: a planilha serve para conferir e somar, o PDF para arquivar e
+enviar. Como o PDF é o documento que substitui a
 via de papel no arquivo, é nele que a coluna de assinatura mais importa.
 
 A exportação roda **no celular**, a partir do que está gravado localmente: o

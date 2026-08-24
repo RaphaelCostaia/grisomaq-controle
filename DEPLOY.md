@@ -137,16 +137,51 @@ código e PIN, e confirme que o navegador oferece "Adicionar à tela de início"
 
 ## Backup
 
-**Isto não é opcional e não vem pronto.** O sistema guarda a jornada e o
-abastecimento de uma safra inteira; perder o banco significa perder a base da
-folha e da conferência de diesel.
+**Isto não é opcional.** O sistema guarda a jornada e o abastecimento de uma
+safra inteira; perder o banco significa perder a base da folha e da conferência
+de diesel.
 
-No EasyPanel, agende um backup do serviço Postgres para armazenamento externo
-(S3 ou equivalente). Um `pg_dump` diário retido por 30 dias cobre o cenário
-realista — a safra dura meses e o erro só é percebido dias depois.
+Os scripts estão prontos em `banco/`. O que falta é agendá-los na VPS — isso
+depende do seu EasyPanel e ninguém pode fazer por você.
 
-Teste a restauração **antes** de precisar dela. Backup nunca restaurado é
-esperança, não backup.
+### Agendar o backup diário
+
+No EasyPanel, serviço do Postgres → **Scheduled Tasks** (ou um `crontab -e` no
+host), uma vez por dia de madrugada:
+
+```bash
+DATABASE_URL=postgres://USUARIO:SENHA@NOME_DO_SERVICO_DO_BANCO:5432/grisomaq DESTINO=/backups sh banco/backup.sh
+```
+
+O script não se limita a gerar o dump: ele **confere que o arquivo abre**
+(`pg_restore --list`) e aborta se vier truncado ou com menos de cinco tabelas
+com dados. Um dump que parece ter funcionado e está vazio é o pior caso — parece
+sucesso e não é.
+
+Retém 30 dias por padrão (`RETENCAO_DIAS`). A safra dura meses e o erro costuma
+ser percebido dias depois.
+
+### Tirar os dumps da máquina
+
+Backup que mora no mesmo disco do banco não protege contra o disco morrer.
+Aponte `/backups` para um volume externo, ou adicione um `rclone`/`aws s3 sync`
+depois do script.
+
+### Testar a restauração — antes de precisar
+
+```bash
+DATABASE_URL=postgres://...@banco-de-teste:5432/teste sh banco/restaurar.sh /backups/grisomaq_AAAA-MM-DD_HHMM.dump
+```
+
+Crie um **segundo** serviço Postgres no EasyPanel e restaure nele. O de produção
+não é tocado, e no fim o script imprime a contagem de funcionários, frotas e
+lançamentos para você conferir que veio tudo.
+
+O script recusa restaurar por cima de um banco que já tem tabelas, a menos que
+você passe `FORCAR=sim`. É proposital: restaurar no banco errado apagaria a
+safra.
+
+Backup nunca restaurado é esperança, não backup.
 
 ## Atualizações
 
