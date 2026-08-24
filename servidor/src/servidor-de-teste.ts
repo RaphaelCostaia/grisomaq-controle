@@ -27,6 +27,7 @@ const pg = new PGlite({ extensions: { pgcrypto, btree_gist, unaccent } })
 /** OIDs que o driver de produção converte via `setTypeParser` (ver banco.ts). */
 const OID_NUMERIC = 1700
 const OID_INT8 = 20
+const OID_DATE = 1082
 
 /**
  * Aplica as mesmas conversões de tipo que o driver de produção faz.
@@ -39,12 +40,31 @@ const OID_INT8 = 20
  */
 function converterTipos(linhas: unknown[], campos: Array<{ name: string; dataTypeID: number }>) {
   const numericas = campos.filter((c) => c.dataTypeID === OID_NUMERIC || c.dataTypeID === OID_INT8)
-  if (numericas.length === 0) return linhas
+  const datas = campos.filter((c) => c.dataTypeID === OID_DATE)
+  if (numericas.length === 0 && datas.length === 0) return linhas
+
   return linhas.map((linha) => {
     const l = linha as Record<string, unknown>
     for (const campo of numericas) {
       const v = l[campo.name]
       if (typeof v === 'string' && v !== '') l[campo.name] = Number(v)
+    }
+    // Data de ficha é dia de calendário, não instante. O PGlite devolve Date, e
+    // um Date vira '2026-08-24T00:00:00.000Z' no JSON — que em fuso negativo
+    // volta como o dia ANTERIOR se alguém reconstruir com `new Date()`. Em
+    // produção o parser entrega os dez caracteres crus; aqui também.
+    for (const campo of datas) {
+      const v = l[campo.name]
+      if (v instanceof Date) {
+        l[campo.name] =
+          v.getUTCFullYear() +
+          '-' +
+          String(v.getUTCMonth() + 1).padStart(2, '0') +
+          '-' +
+          String(v.getUTCDate()).padStart(2, '0')
+      } else if (typeof v === 'string' && v.length > 10) {
+        l[campo.name] = v.slice(0, 10)
+      }
     }
     return l
   })
