@@ -114,7 +114,10 @@ await pg.exec(`
 
 const { construirServidor } = await import('./index.ts')
 const app = await construirServidor()
-await app.listen({ port: 3000, host: '127.0.0.1' })
-console.log('\nAPI de desenvolvimento em http://localhost:3000')
+// A porta vem de quem chamou (o plugin do Vite escolhe uma livre); 3000 fica
+// como padrão para quem sobe este arquivo direto no terminal.
+const porta = Number(process.env.PORTA ?? 3000)
+await app.listen({ port: porta, host: '127.0.0.1' })
+console.log('\nAPI de desenvolvimento em http://localhost:' + porta)
 console.log('Escritório: código 9001 · PIN 7196')
 console.log('Campo:      código 1001 · PIN 4731\n')
