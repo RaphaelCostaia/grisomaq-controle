@@ -135,6 +135,8 @@ export const CHAVES_META = {
   ultimoSyncOk: 'ultimo_sync_ok',
   desvioRelogioMs: 'desvio_relogio_ms',
   ultimoBloqueioTela: 'ultimo_bloqueio_tela',
+  /** Formulário de abastecimento em andamento, para sobreviver a um reload. */
+  rascunhoAbastecimento: 'rascunho_abastecimento',
 } as const
 
 export async function lerMeta<T>(chave: string): Promise<T | undefined> {

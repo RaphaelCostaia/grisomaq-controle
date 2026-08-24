@@ -1,9 +1,16 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { AlertTriangle, ArrowLeft, Check, TriangleAlert } from 'lucide-react'
 import { db } from '@/dados/db'
+import {
+  CHAVE_RASCUNHO_ABASTECIMENTO,
+  comeceiAPreencher,
+  descartarRascunho,
+  guardarRascunho,
+  recuperarRascunho,
+} from '@/dados/rascunho-em-andamento'
 import {
   contextoDeValidacao,
   novoRascunho,
@@ -36,9 +43,37 @@ export function AbastecimentoForm() {
   const frotas = useLiveQuery(() => db.mestre_frotas.filter((f) => f.ativo).toArray(), [], [])
   const funcionarios = useLiveQuery(() => db.mestre_funcionarios.filter((f) => f.ativo).toArray(), [], [])
 
+  // Retoma o que estava sendo preenchido antes de a tela reiniciar. Sem isto,
+  // um recarregamento manda o operador de volta à máquina para reler horímetro
+  // e bomba — números que ele leu com a mão, não que o app calculou.
+  const jaMontou = useRef(false)
   useEffect(() => {
-    void novoRascunho().then(setR)
+    // O StrictMode monta duas vezes em desenvolvimento. Sem esta trava o
+    // operador veria o aviso de retomada em dobro aqui e uma vez em produção —
+    // e o que se testa deixaria de ser o que roda.
+    if (jaMontou.current) return
+    jaMontou.current = true
+
+    void (async () => {
+      const guardado = await recuperarRascunho<RascunhoAbastecimento>(CHAVE_RASCUNHO_ABASTECIMENTO)
+      if (guardado) {
+        setR(guardado)
+        toast.info('Retomando a ficha que você estava preenchendo.')
+        return
+      }
+      setR(await novoRascunho())
+    })()
   }, [])
+
+  // Guarda a cada alteração: o custo é uma escrita local minúscula, e o que se
+  // evita é o operador redigitar leitura de painel.
+  //
+  // Só depois que houver algo digitado, para quem abre e desiste não ficar com
+  // uma ficha vazia sendo "retomada" toda vez que entrar na tela.
+  useEffect(() => {
+    if (!r || !comeceiAPreencher(r)) return
+    void guardarRascunho(CHAVE_RASCUNHO_ABASTECIMENTO, r)
+  }, [r])
 
   // O contexto é recarregado quando muda o que ele depende: trocar de frota
   // troca as últimas leituras conhecidas e, com elas, as validações.
@@ -97,6 +132,7 @@ export function AbastecimentoForm() {
     setSalvando(true)
     try {
       await salvarAbastecimento(r, sessao, pinDoAceite)
+      await descartarRascunho(CHAVE_RASCUNHO_ABASTECIMENTO)
       toast.success('Salvo no celular. Será enviado quando houver sinal.')
       navegar('/abastecimento')
     } catch (erro) {
