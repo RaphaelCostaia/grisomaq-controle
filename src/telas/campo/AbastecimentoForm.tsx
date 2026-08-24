@@ -58,7 +58,10 @@ export function AbastecimentoForm() {
   }, [r?.comboio_frota_id, r?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const diagnostico = useMemo(() => (r && ctx ? validarAbastecimento(r, ctx) : null), [r, ctx])
-  const conferencia = useMemo(() => (r && ctx ? conferirLitros(r, ctx.parametros) : null), [r, ctx])
+  const conferencia = useMemo(
+    () => (r && ctx ? conferirLitros(r, ctx.parametros, ctx.frota?.capacidade_tanque_litros) : null),
+    [r, ctx],
+  )
 
   if (!r || !ctx || !diagnostico) return <Carregando />
 
@@ -215,7 +218,7 @@ export function AbastecimentoForm() {
             valor={r.litros}
             onMudar={(v) => mudar({ litros: v })}
             sufixo="L"
-            {...(conferencia
+            {...(conferencia && conferencia.daBombaCabe
               ? {
                   ultimaConhecida: {
                     valor: conferencia.daBomba,
@@ -227,7 +230,12 @@ export function AbastecimentoForm() {
           />
         </GrupoDeLeituras>
 
-        {conferencia && <LinhaConferencia conferencia={conferencia} litros={r.litros} />}
+        {/* A faixa de conferência some quando os litros já estão bloqueados: um
+            "confere com a bomba" ao lado de "não cabe no tanque" diz ao operador
+            duas coisas opostas ao mesmo tempo. */}
+        {conferencia && !achadoDe('litros') && (
+          <LinhaConferencia conferencia={conferencia} litros={r.litros} />
+        )}
 
         <SeletorBusca
           rotulo="Operador que recebeu"

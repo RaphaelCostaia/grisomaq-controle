@@ -43,12 +43,25 @@ export interface ContextoAbastecimento {
  * Litros informados x litros que a bomba registrou. E a conferencia que o papel
  * carbonado nunca fez, e a tela mostra a conta ao vivo enquanto o operador digita.
  */
-export function conferirLitros(r: RascunhoAbastecimento, p: Parametros) {
+export function conferirLitros(
+  r: RascunhoAbastecimento,
+  p: Parametros,
+  capacidadeTanque?: number | null,
+) {
   if (r.registrador_inicio === null || r.registrador_fim === null || r.litros === null) return null
   const daBomba = r.registrador_fim - r.registrador_inicio
   const diferenca = r.litros - daBomba
   const tolerado = Math.max(p.tolerancia_litros_abs, Math.abs(daBomba) * p.tolerancia_litros_pct)
-  return { daBomba, diferenca, confere: Math.abs(diferenca) <= tolerado }
+
+  // O valor da bomba só serve de atalho se ELE PRÓPRIO for aceitável. Oferecer
+  // "usar 820,0" num tanque de 650 leva o operador a um beco: ele toca, o app
+  // aceita o número e continua recusando o salvamento — e ainda mostra "confere
+  // com a bomba" ao lado de "não cabe no tanque". Quando a leitura da bomba é
+  // implausível, o problema está no registrador, não nos litros.
+  const daBombaCabe =
+    daBomba > 0 && (!capacidadeTanque || daBomba <= capacidadeTanque * p.fator_capacidade_tanque)
+
+  return { daBomba, diferenca, confere: Math.abs(diferenca) <= tolerado, daBombaCabe }
 }
 
 export function validarAbastecimento(r: RascunhoAbastecimento, ctx: ContextoAbastecimento): Diagnostico {

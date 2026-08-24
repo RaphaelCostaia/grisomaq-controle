@@ -76,7 +76,7 @@ const codigos = (r: ReturnType<typeof validarAbastecimento>) => r.achados.map((a
 describe('conferência de litros contra a bomba', () => {
   it('confere quando os litros batem com o registrador', () => {
     const c = conferirLitros(rascunho(), PARAMETROS_PADRAO)
-    expect(c).toEqual({ daBomba: 45, diferenca: 0, confere: true })
+    expect(c).toEqual({ daBomba: 45, diferenca: 0, confere: true, daBombaCabe: true })
   })
 
   it('aceita diferença dentro da tolerância absoluta', () => {
@@ -92,6 +92,42 @@ describe('conferência de litros contra a bomba', () => {
 
   it('não conclui nada enquanto falta um dos três valores', () => {
     expect(conferirLitros(rascunho({ registrador_fim: null }), PARAMETROS_PADRAO)).toBeNull()
+  })
+
+  /**
+   * O atalho "usar o valor da bomba" existe para tirar o operador do erro num
+   * toque. Se o próprio valor da bomba for recusado, ele deixa de ser saída:
+   * o operador toca, o app aceita o número e continua sem deixar salvar.
+   * Quando a bomba acusa mais do que cabe no tanque, o erro está no
+   * registrador, não nos litros.
+   */
+  it('não oferece o valor da bomba quando ele não cabe no tanque', () => {
+    const c = conferirLitros(
+      rascunho({ registrador_inicio: 40180, registrador_fim: 41000, litros: 800 }),
+      PARAMETROS_PADRAO,
+      650,
+    )
+    expect(c?.daBomba).toBe(820)
+    expect(c?.daBombaCabe).toBe(false)
+  })
+
+  it('oferece o valor da bomba quando ele cabe', () => {
+    const c = conferirLitros(
+      rascunho({ registrador_inicio: 40180, registrador_fim: 40280, litros: 95 }),
+      PARAMETROS_PADRAO,
+      650,
+    )
+    expect(c?.daBomba).toBe(100)
+    expect(c?.daBombaCabe).toBe(true)
+  })
+
+  it('sem capacidade cadastrada, não inventa limite', () => {
+    const c = conferirLitros(
+      rascunho({ registrador_inicio: 0, registrador_fim: 9000, litros: 9000 }),
+      PARAMETROS_PADRAO,
+      null,
+    )
+    expect(c?.daBombaCabe).toBe(true)
   })
 })
 
