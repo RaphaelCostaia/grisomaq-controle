@@ -6,6 +6,7 @@ import { CabecalhoPainel } from '@/componentes/layout/LayoutAdmin'
 import { Botao } from '@/componentes/ui/Botao'
 import { dataBr, dataHoraBr, hojeOperacional } from '@/utilitarios/datas'
 import { cls } from '@/utilitarios/classes'
+import { contar } from '@/utilitarios/numeros'
 
 interface Fechamento {
   id: string
@@ -65,7 +66,7 @@ export function Fechamentos() {
       toast.success(
         r.documentos === 0
           ? 'Nenhum lançamento novo neste período — nada a travar.'
-          : r.documentos + ' lançamento(s) travados.',
+          : contar(r.documentos, 'lançamento travado.', 'lançamentos travados.'),
       )
       setObservacao('')
       await recarregar()
@@ -83,7 +84,7 @@ export function Fechamentos() {
       const r = await chamar<{ documentos: number }>('/painel/fechamentos/reabrir', {
         corpo: { fechamento_id: reabrindo.id, motivo },
       })
-      toast.success(r.documentos + ' lançamento(s) voltaram a aceitar correção.')
+      toast.success(contar(r.documentos, 'lançamento voltou', 'lançamentos voltaram') + ' a aceitar correção.')
       setReabrindo(null)
       setMotivo('')
       await recarregar()
@@ -228,7 +229,7 @@ export function Fechamentos() {
 
             <div className="px-5 py-5">
               <p className="text-sm">
-                {dataBr(reabrindo.de)} a {dataBr(reabrindo.ate)} · {reabrindo.documentos_travados} lançamento(s)
+                {dataBr(reabrindo.de)} a {dataBr(reabrindo.ate)} · {contar(reabrindo.documentos_travados, 'lançamento', 'lançamentos')}
               </p>
               {/* Reabrir depois do fechamento é excepcional. O motivo fica no
                   registro para a conferência seguinte entender o que houve. */}

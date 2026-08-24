@@ -24,10 +24,37 @@ process.env.NODE_ENV ??= 'production'
 
 const pg = new PGlite({ extensions: { pgcrypto, btree_gist, unaccent } })
 
+/** OIDs que o driver de produção converte via `setTypeParser` (ver banco.ts). */
+const OID_NUMERIC = 1700
+const OID_INT8 = 20
+
+/**
+ * Aplica as mesmas conversões de tipo que o driver de produção faz.
+ *
+ * O PGlite não passa pelos type parsers do `pg`, então NUMERIC chegava como
+ * texto aqui e como número na VPS. Uma tela que some ou formata número
+ * funcionava num ambiente e não no outro — e a falha é silenciosa: o valor
+ * existe, só aparece como travessão. Sem isto, validar localmente não diz nada
+ * sobre produção, que é justamente para o que este servidor serve.
+ */
+function converterTipos(linhas: unknown[], campos: Array<{ name: string; dataTypeID: number }>) {
+  const numericas = campos.filter((c) => c.dataTypeID === OID_NUMERIC || c.dataTypeID === OID_INT8)
+  if (numericas.length === 0) return linhas
+  return linhas.map((linha) => {
+    const l = linha as Record<string, unknown>
+    for (const campo of numericas) {
+      const v = l[campo.name]
+      if (typeof v === 'string' && v !== '') l[campo.name] = Number(v)
+    }
+    return l
+  })
+}
+
 const cliente = {
   query: async (texto: string, valores?: unknown[]) => {
     const r = await pg.query(texto, valores as never[])
-    return { rows: r.rows, rowCount: r.rows.length }
+    const linhas = converterTipos(r.rows, (r.fields ?? []) as Array<{ name: string; dataTypeID: number }>)
+    return { rows: linhas, rowCount: linhas.length }
   },
   release: () => {},
 }
@@ -60,7 +87,26 @@ await pg.exec(`
 
   insert into public.veiculos_transporte (id, numero, tipo, transportadora) values
     ('01920000-0000-7000-8000-000000000030', '77', 'cavalo', 'Transcana'),
-    ('01920000-0000-7000-8000-000000000031', '82', 'cavalo', 'Transcana');
+    ('01920000-0000-7000-8000-000000000031', '82', 'cavalo', 'Transcana'),
+    -- Rodotrem e cavalo + DUAS carretas. Sem carreta nenhuma cadastrada, a
+    -- tela de chegada so conseguia registrar ciclo incompleto.
+    ('01920000-0000-7000-8000-000000000032', '77A', 'carreta', 'Transcana'),
+    ('01920000-0000-7000-8000-000000000033', '77B', 'carreta', 'Transcana'),
+    ('01920000-0000-7000-8000-000000000034', '82A', 'carreta', 'Transcana'),
+    ('01920000-0000-7000-8000-000000000035', '82B', 'carreta', 'Transcana');
+
+  -- A Frente 1 e de 3 turnos; as duas escalas ficam cadastradas porque o
+  -- seletor filtra pela escala da frente, e e isso que precisa ser conferido.
+  insert into public.turnos (id, codigo, nome, escala, hora_inicio, hora_fim, duracao_horas, vira_dia) values
+    ('01920000-0000-7000-8000-000000000060', 'T1', '1º Turno', '3_turnos', '06:00', '14:00', 8, false),
+    ('01920000-0000-7000-8000-000000000061', 'T2', '2º Turno', '3_turnos', '14:00', '22:00', 8, false),
+    ('01920000-0000-7000-8000-000000000062', 'T3', '3º Turno', '3_turnos', '22:00', '06:00', 8, true),
+    ('01920000-0000-7000-8000-000000000063', 'A', 'Turno A', '2_turnos', '06:00', '18:00', 12, false),
+    ('01920000-0000-7000-8000-000000000064', 'B', 'Turno B', '2_turnos', '18:00', '06:00', 12, true);
+
+  insert into public.lideres (id, codigo, nome, funcionario_id) values
+    ('01920000-0000-7000-8000-000000000070', 'L01', 'Sebastião Alves', null),
+    ('01920000-0000-7000-8000-000000000071', 'L02', 'Antônio Carlos Souza', '01920000-0000-7000-8000-000000000002');
 
   select public.fn_definir_pin('01920000-0000-7000-8000-000000000009', '7196', null, false);
   select public.fn_definir_pin('01920000-0000-7000-8000-000000000001', '4731', null, false);
@@ -114,6 +160,43 @@ await pg.exec(`
 
 const { construirServidor } = await import('./index.ts')
 const app = await construirServidor()
+
+/**
+ * Aloca uma faixa de numeração ao celular que entrar, se ele ainda não tiver.
+ *
+ * ANDAIME DE DESENVOLVIMENTO — em produção quem aloca é o escritório, de
+ * propósito: a faixa é o que impede dois celulares offline de emitirem a mesma
+ * ficha. Aqui o banco vive na memória e o id do aparelho nasce no navegador,
+ * então a cada reinício ninguém conseguiria lançar um abastecimento sequer sem
+ * ir ao painel primeiro. O andaime existe para a tela poder ser vista.
+ */
+app.addHook('preHandler', async (requisicao) => {
+  if (requisicao.url !== '/auth/login-campo') return
+  const corpo = requisicao.body as { dispositivo_id?: string } | undefined
+  const dispositivo = corpo?.dispositivo_id
+  if (!dispositivo) return
+
+  const { rows } = await pg.query<{ n: number }>(
+    'select count(*)::int as n from public.blocos_abastecimento where dispositivo_id = $1',
+    [dispositivo],
+  )
+  if ((rows[0]?.n ?? 0) > 0) return
+
+  // Cada aparelho ganha uma faixa de 50 que não encosta na dos outros.
+  const { rows: usadas } = await pg.query<{ proximo: number }>(
+    "select coalesce(max(numero_final), 6949) + 1 as proximo from public.blocos_abastecimento",
+  )
+  const inicial = usadas[0]?.proximo ?? 6950
+  await pg.query(
+    `insert into public.blocos_abastecimento
+       (id, numero_inicial, numero_final, funcionario_id, dispositivo_id, comboio_frota_id, ativo)
+     values (gen_random_uuid(), $1, $2,
+       '01920000-0000-7000-8000-000000000001', $3,
+       '01920000-0000-7000-8000-000000000011', true)`,
+    [inicial, inicial + 49, dispositivo],
+  )
+  console.log('Faixa ' + inicial + '-' + (inicial + 49) + ' alocada ao aparelho ' + dispositivo.slice(0, 8))
+})
 // A porta vem de quem chamou (o plugin do Vite escolhe uma livre); 3000 fica
 // como padrão para quem sobe este arquivo direto no terminal.
 const porta = Number(process.env.PORTA ?? 3000)

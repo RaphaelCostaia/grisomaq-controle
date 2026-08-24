@@ -32,7 +32,9 @@ export interface DispositivoParado {
   funcionario_nome: string | null
   app_versao: string | null
   ultimo_sync_em: string | null
-  horas_sem_sync: number | null
+  /** NUMERIC do Postgres; o driver converte, mas o tipo admite texto para
+   *  que uma origem sem parser não vire travessão em silêncio. */
+  horas_sem_sync: number | string | null
   desvio_relogio_ms: number | null
 }
 

@@ -6,6 +6,7 @@ import { apontamentosDoDia, itensDoApontamento } from '@/dados/repositorios/apon
 import { BarraSync } from '@/componentes/layout/BarraSync'
 import { AbasInferiores } from '@/componentes/layout/AbasInferiores'
 import { Botao } from '@/componentes/ui/Botao'
+import { contar } from '@/utilitarios/numeros'
 
 export function Apontamentos() {
   const fichas = useLiveQuery(() => apontamentosDoDia(), [], [])
@@ -33,7 +34,9 @@ export function Apontamentos() {
       <header className="border-b-2 border-[var(--cor-borda-forte)] px-4 py-3">
         <h1 className="text-sm font-bold tracking-[0.18em] uppercase">Apontamento</h1>
         <p className="mt-1 text-sm text-[var(--cor-texto-suave)]">
-          {fichas.length === 0 ? 'Nenhuma ficha aberta hoje.' : fichas.length + ' ficha(s) hoje'}
+          {fichas.length === 0
+            ? 'Nenhuma ficha aberta hoje.'
+            : contar(fichas.length, 'ficha hoje', 'fichas hoje')}
         </p>
       </header>
 

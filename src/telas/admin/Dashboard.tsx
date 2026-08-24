@@ -16,7 +16,7 @@ import { AlertTriangle, CheckCircle2, CloudOff, FileWarning, PenLine } from 'luc
 import { carregarResumo, type ResumoPainel } from '@/dados/painel'
 import { CabecalhoPainel } from '@/componentes/layout/LayoutAdmin'
 import { dataBr, duracaoCurta } from '@/utilitarios/datas'
-import { formatarLitros, formatarNumero } from '@/utilitarios/numeros'
+import { formatarLitros, formatarNumero, formatarHoras, contar } from '@/utilitarios/numeros'
 import { cls } from '@/utilitarios/classes'
 
 /**
@@ -122,7 +122,7 @@ export function Dashboard() {
               valor={resumo.assinaturas.total}
               detalhe={
                 resumo.assinaturas.invalidas > 0
-                  ? resumo.assinaturas.invalidas + ' contestada(s)'
+                  ? contar(resumo.assinaturas.invalidas, 'contestada', 'contestadas')
                   : 'Aguardando confirmação'
               }
               severidade={
@@ -263,7 +263,9 @@ export function Dashboard() {
                     <Td className="font-mono text-xs">{d.id.slice(0, 8).toUpperCase()}</Td>
                     <Td>{d.app_versao ?? '—'}</Td>
                     <Td className="numerico text-right font-bold">
-                      {d.horas_sem_sync === null ? 'nunca enviou' : formatarNumero(d.horas_sem_sync, 1) + ' h'}
+                      {d.horas_sem_sync === null || d.horas_sem_sync === undefined
+                        ? 'nunca enviou'
+                        : formatarHoras(d.horas_sem_sync)}
                     </Td>
                   </tr>
                 ))}
