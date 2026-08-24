@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { KeyRound, Lock, Plus, X } from 'lucide-react'
+import { KeyRound, Unlock, Lock, Plus, X } from 'lucide-react'
 import {
   carregarFuncionarios,
+  liberarAcesso,
   provisionarPin,
   salvarFuncionario,
   type FuncionarioPainel,
@@ -70,6 +71,26 @@ export function Funcionarios() {
     }
   }
 
+  /**
+   * Devolve o acesso sem trocar o PIN.
+   *
+   * Errar o PIN cinco vezes de luva é comum; trocar o número por causa disso
+   * transferiria o custo para o operador, que teria de decorar outro no meio do
+   * turno. Este botão só zera o contador.
+   */
+  async function liberar(f: FuncionarioPainel) {
+    setOcupado(true)
+    try {
+      await liberarAcesso(f.id)
+      await recarregar()
+      toast.success(f.nome.split(' ')[0] + ' já pode entrar com o PIN de sempre.')
+    } catch (erro) {
+      toast.error(erro instanceof Error ? erro.message : 'Não foi possível liberar.')
+    } finally {
+      setOcupado(false)
+    }
+  }
+
   return (
     <>
       <CabecalhoPainel
@@ -123,6 +144,17 @@ export function Funcionarios() {
                       >
                         Editar
                       </button>
+                      {f.bloqueado && (
+                        <button
+                          type="button"
+                          disabled={ocupado}
+                          onClick={() => void liberar(f)}
+                          className="flex items-center gap-1 text-sm font-semibold text-carbono-700 underline disabled:opacity-40"
+                        >
+                          <Unlock aria-hidden className="size-3.5" />
+                          Liberar
+                        </button>
+                      )}
                       <button
                         type="button"
                         disabled={ocupado}

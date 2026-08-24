@@ -164,6 +164,40 @@ describe('login de campo', () => {
     await pg.exec(`select public.fn_zerar_falhas_pin('${ID.outro}')`)
   })
 
+  /**
+   * A tela do campo manda "peça ao escritório para liberar". Sem esta rota a
+   * promessa era falsa: o painel mostrava o bloqueio e o único jeito de
+   * desfazê-lo era GERAR UM PIN NOVO — obrigando o operador a decorar outro
+   * número no meio do turno porque errou cinco vezes de luva.
+   */
+  it('o escritório libera quem se bloqueou, mantendo o PIN de sempre', async () => {
+    for (let i = 0; i < 5; i++) await entrar('1002', '0000')
+    assert.equal((await entrar('1002', '5824')).status, 429, 'deveria estar bloqueado')
+
+    const admin = await entrar('9001', '7196')
+    const liberacao = await app.inject({
+      method: 'POST',
+      url: '/painel/funcionarios/liberar',
+      headers: comToken(admin.corpo),
+      payload: { id: ID.outro },
+    })
+    assert.equal(liberacao.statusCode, 200)
+
+    const depois = await entrar('1002', '5824')
+    assert.equal(depois.status, 200, 'o PIN de sempre deveria voltar a funcionar')
+  })
+
+  it('só o escritório libera', async () => {
+    const campo = await entrar('1001', '4731')
+    const r = await app.inject({
+      method: 'POST',
+      url: '/painel/funcionarios/liberar',
+      headers: comToken(campo.corpo),
+      payload: { id: ID.outro },
+    })
+    assert.equal(r.statusCode, 403, 'funcionário de campo não pode destravar ninguém')
+  })
+
   it('nunca devolve o hash do PIN', async () => {
     const { corpo } = await entrar('1001', '4731')
     assert.ok(!JSON.stringify(corpo).includes('pin_hash'))

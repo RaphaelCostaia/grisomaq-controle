@@ -132,6 +132,34 @@ export async function rotasDoPainel(app: FastifyInstance): Promise<void> {
     })
   })
 
+  /**
+   * Libera quem se bloqueou errando o PIN, SEM trocar o PIN dele.
+   *
+   * O caminho antigo era gerar um PIN novo, o que resolve o bloqueio criando
+   * outro problema: o operador precisa decorar outro número no meio do turno.
+   */
+  app.post('/painel/funcionarios/liberar', async (requisicao, resposta) => {
+    const identidade = exigirAdmin(requisicao, resposta)
+    if (!identidade) return
+
+    const corpo = requisicao.body as { id?: string }
+    if (!corpo?.id) return resposta.code(400).send({ erro: 'CORPO_INVALIDO' })
+
+    try {
+      return await comoFuncionario(identidade, async (cliente) => {
+        await cliente.query('select public.fn_liberar_pin($1)', [corpo.id])
+        return { liberado: true }
+      })
+    } catch (erro) {
+      const mensagem = erro instanceof Error ? erro.message : ''
+      if (mensagem.includes('FUNCIONARIO_NAO_ENCONTRADO')) {
+        return resposta.code(404).send({ erro: 'NAO_ENCONTRADO' })
+      }
+      if (mensagem.includes('SEM_PERMISSAO')) return resposta.code(403).send({ erro: 'SEM_PERMISSAO' })
+      throw erro
+    }
+  })
+
   app.post('/painel/funcionarios/salvar', async (requisicao, resposta) => {
     const identidade = exigirAdmin(requisicao, resposta)
     if (!identidade) return
