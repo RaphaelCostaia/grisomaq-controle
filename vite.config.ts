@@ -3,6 +3,7 @@ import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
+import { apiLocal } from './vite-plugin-api-local'
 
 export default defineConfig({
   resolve: {
@@ -11,6 +12,8 @@ export default defineConfig({
     },
   },
   plugins: [
+    // Sobe a API de desenvolvimento junto: um comando só para ver o sistema.
+    apiLocal(),
     react(),
     tailwindcss(),
     VitePWA({

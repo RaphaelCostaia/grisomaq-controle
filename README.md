@@ -44,14 +44,24 @@ funcionando integralmente mesmo dias offline (o JWT só é necessário no push).
 
 ```bash
 npm install
+cd servidor && npm install && cd ..
 cp .env.example .env
-npm run dev                          # PWA em http://localhost:5180
-
-cd servidor && npm install
-DATABASE_URL=... JWT_SEGREDO=... npm run dev   # API em http://localhost:3000
+npm run dev
 ```
 
-Ou tudo junto, do jeito mais próximo da VPS:
+Isso sobe **as duas coisas**: o PWA em `http://localhost:5180` e a API em
+`http://localhost:3000`. Um plugin do Vite (`vite-plugin-api-local.ts`) inicia a
+API junto e a derruba junto — sem isso seriam dois terminais, e quem só quer
+olhar uma tela esbarra nesse atrito antes de chegar nela.
+
+Essa API de desenvolvimento roda contra um Postgres **em memória** (PGlite), já
+com duas semanas de operação simulada. Reiniciar apaga tudo; o banco de verdade
+é o Postgres da VPS. Para desligá-la e apontar para outra API, use
+`SEM_API_LOCAL=1 npm run dev`.
+
+Entre com **9001 / 7196** (escritório) ou **1001 / 4731** (campo).
+
+Para rodar a pilha real, do jeito mais próximo da VPS (precisa de Docker):
 
 ```bash
 docker compose up --build
