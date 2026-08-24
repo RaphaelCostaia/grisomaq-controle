@@ -14,7 +14,7 @@ import {
 import { conferirLitros, validarAbastecimento, type ContextoAbastecimento, type RascunhoAbastecimento } from '@/dominio/abastecimento/regras'
 import type { Achado } from '@/dominio/severidade'
 import { Botao } from '@/componentes/ui/Botao'
-import { CampoLeitura } from '@/componentes/ui/CampoLeitura'
+import { CampoLeitura, GrupoDeLeituras } from '@/componentes/ui/CampoLeitura'
 import { SeletorBusca, type OpcaoSeletor } from '@/componentes/ui/SeletorBusca'
 import { TelaAceite } from '@/componentes/ui/TelaAceite'
 import { useSessao } from '@/autenticacao/contexto'
@@ -150,80 +150,82 @@ export function AbastecimentoForm() {
           erro={achadoDe('frota_id')?.mensagem}
         />
 
-        <CampoLeitura
-          rotulo="Horímetro motor"
-          valor={r.horimetro_motor}
-          onMudar={(v) => mudar({ horimetro_motor: v })}
-          desabilitado={!!frota && !frota.tem_horimetro_motor}
-          motivoDesabilitado="Esta frota não tem horímetro de motor."
-          ultimaConhecida={ultimaDe(ctx, 'horimetro_motor')}
-          erro={achadoDe('horimetro_motor')?.mensagem}
-        />
+        <GrupoDeLeituras>
+          <CampoLeitura
+            rotulo="Horímetro motor"
+            valor={r.horimetro_motor}
+            onMudar={(v) => mudar({ horimetro_motor: v })}
+            desabilitado={!!frota && !frota.tem_horimetro_motor}
+            motivoDesabilitado="Esta frota não tem horímetro de motor."
+            ultimaConhecida={ultimaDe(ctx, 'horimetro_motor')}
+            erro={achadoDe('horimetro_motor')?.mensagem}
+          />
 
-        <CampoLeitura
-          rotulo="Horímetro elevador"
-          valor={r.horimetro_elevador}
-          onMudar={(v) => mudar({ horimetro_elevador: v })}
-          desabilitado={!!frota && !frota.tem_horimetro_elevador}
-          motivoDesabilitado="Esta frota não tem elevador."
-          ultimaConhecida={ultimaDe(ctx, 'horimetro_elevador')}
-          erro={achadoDe('horimetro_elevador')?.mensagem}
-        />
+          <CampoLeitura
+            rotulo="Horímetro elevador"
+            valor={r.horimetro_elevador}
+            onMudar={(v) => mudar({ horimetro_elevador: v })}
+            desabilitado={!!frota && !frota.tem_horimetro_elevador}
+            motivoDesabilitado="Esta frota não tem elevador."
+            ultimaConhecida={ultimaDe(ctx, 'horimetro_elevador')}
+            erro={achadoDe('horimetro_elevador')?.mensagem}
+          />
 
-        <CampoLeitura
-          rotulo="Hodômetro"
-          valor={r.odometro}
-          onMudar={(v) => mudar({ odometro: v })}
-          desabilitado={!!frota && !frota.tem_odometro}
-          motivoDesabilitado="Esta frota não tem hodômetro."
-          ultimaConhecida={ultimaDe(ctx, 'odometro')}
-          erro={achadoDe('odometro')?.mensagem}
-        />
+          <CampoLeitura
+            rotulo="Hodômetro"
+            valor={r.odometro}
+            onMudar={(v) => mudar({ odometro: v })}
+            desabilitado={!!frota && !frota.tem_odometro}
+            motivoDesabilitado="Esta frota não tem hodômetro."
+            ultimaConhecida={ultimaDe(ctx, 'odometro')}
+            erro={achadoDe('odometro')?.mensagem}
+          />
 
-        <CampoLeitura
-          rotulo="Início reg. (bomba)"
-          valor={r.registrador_inicio}
-          onMudar={(v) => mudar({ registrador_inicio: v })}
-          casas={1}
-          {...(ctx.ultimoRegistradorComboio
-            ? {
-                ultimaConhecida: {
-                  valor: ctx.ultimoRegistradorComboio.valor,
-                  texto:
-                    'Ficha ' +
-                    ctx.ultimoRegistradorComboio.numero_documento +
-                    ' terminou em ' +
-                    formatarLeitura(ctx.ultimoRegistradorComboio.valor) +
-                    ' · ' +
-                    dataHoraBr(new Date(ctx.ultimoRegistradorComboio.momento)),
-                },
-              }
-            : {})}
-          erro={achadoDe('registrador_inicio')?.mensagem}
-        />
+          <CampoLeitura
+            rotulo="Início reg. (bomba)"
+            valor={r.registrador_inicio}
+            onMudar={(v) => mudar({ registrador_inicio: v })}
+            casas={1}
+            {...(ctx.ultimoRegistradorComboio
+              ? {
+                  ultimaConhecida: {
+                    valor: ctx.ultimoRegistradorComboio.valor,
+                    texto:
+                      'Ficha ' +
+                      ctx.ultimoRegistradorComboio.numero_documento +
+                      ' terminou em ' +
+                      formatarLeitura(ctx.ultimoRegistradorComboio.valor) +
+                      ' · ' +
+                      dataHoraBr(new Date(ctx.ultimoRegistradorComboio.momento)),
+                  },
+                }
+              : {})}
+            erro={achadoDe('registrador_inicio')?.mensagem}
+          />
 
-        <CampoLeitura
-          rotulo="Final reg. (bomba)"
-          valor={r.registrador_fim}
-          onMudar={(v) => mudar({ registrador_fim: v })}
-          erro={achadoDe('registrador_fim')?.mensagem}
-        />
+          <CampoLeitura
+            rotulo="Final reg. (bomba)"
+            valor={r.registrador_fim}
+            onMudar={(v) => mudar({ registrador_fim: v })}
+            erro={achadoDe('registrador_fim')?.mensagem}
+          />
 
-        <CampoLeitura
-          rotulo="Litros"
-          valor={r.litros}
-          onMudar={(v) => mudar({ litros: v })}
-          sufixo="L"
-          {...(conferencia
-            ? {
-                ultimaConhecida: {
-                  valor: conferencia.daBomba,
-                  texto: 'A bomba registrou ' + formatarLitros(conferencia.daBomba),
-                },
-              }
-            : {})}
-          erro={achadoDe('litros')?.mensagem}
-        />
+          <CampoLeitura
+            rotulo="Litros"
+            valor={r.litros}
+            onMudar={(v) => mudar({ litros: v })}
+            sufixo="L"
+            {...(conferencia
+              ? {
+                  ultimaConhecida: {
+                    valor: conferencia.daBomba,
+                    texto: 'A bomba registrou ' + formatarLitros(conferencia.daBomba),
+                  },
+                }
+              : {})}
+            erro={achadoDe('litros')?.mensagem}
+          />
+        </GrupoDeLeituras>
 
         {conferencia && <LinhaConferencia conferencia={conferencia} litros={r.litros} />}
 

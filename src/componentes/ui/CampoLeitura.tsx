@@ -1,8 +1,28 @@
-import { useState } from 'react'
+import { createContext, useContext, useId, useMemo, useState } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { TecladoNumerico } from './TecladoNumerico'
 import { formatarNumero, paraNumero } from '@/utilitarios/numeros'
 import { cls } from '@/utilitarios/classes'
+
+/**
+ * Coordena quais linhas de um mesmo grupo podem estar abertas.
+ *
+ * Sem isso cada campo abria por conta propria e o formulario ficava com dois
+ * teclados numericos identicos na tela ao mesmo tempo, nada dizendo qual deles
+ * recebe o digito. De luva e sol forte, com os campos do papel um embaixo do
+ * outro, isso e digito no campo errado — e o formulario ainda passava a ter
+ * duas telas e meia de altura.
+ */
+const ContextoLeituras = createContext<{
+  aberto: string | null
+  definirAberto: (id: string | null) => void
+} | null>(null)
+
+export function GrupoDeLeituras({ children }: { children: React.ReactNode }) {
+  const [aberto, definirAberto] = useState<string | null>(null)
+  const valor = useMemo(() => ({ aberto, definirAberto }), [aberto])
+  return <ContextoLeituras.Provider value={valor}>{children}</ContextoLeituras.Provider>
+}
 
 interface Props {
   rotulo: string
@@ -36,7 +56,17 @@ export function CampoLeitura({
   motivoDesabilitado,
   erro,
 }: Props) {
-  const [aberto, setAberto] = useState(false)
+  // Fora de um GrupoDeLeituras cada campo continua se governando: o componente
+  // segue utilizavel sozinho, sem obrigar todo uso a montar um provedor.
+  const grupo = useContext(ContextoLeituras)
+  const id = useId()
+  const [abertoLocal, setAbertoLocal] = useState(false)
+  const aberto = grupo ? grupo.aberto === id : abertoLocal
+  const setAberto = (proximo: boolean) => {
+    if (grupo) grupo.definirAberto(proximo ? id : null)
+    else setAbertoLocal(proximo)
+  }
+
   const [texto, setTexto] = useState<string | null>(null)
 
   const exibido = texto ?? (valor === null ? '' : formatarNumero(valor, casas))

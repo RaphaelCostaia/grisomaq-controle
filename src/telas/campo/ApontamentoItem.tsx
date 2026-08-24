@@ -13,7 +13,7 @@ import {
 import { validarItem, type ContextoItem, type RascunhoItem } from '@/dominio/apontamento/regras'
 import type { Achado } from '@/dominio/severidade'
 import { Botao } from '@/componentes/ui/Botao'
-import { CampoLeitura } from '@/componentes/ui/CampoLeitura'
+import { CampoLeitura, GrupoDeLeituras } from '@/componentes/ui/CampoLeitura'
 import { SeletorBusca, type OpcaoSeletor } from '@/componentes/ui/SeletorBusca'
 import { useSessao } from '@/autenticacao/contexto'
 import { formatarLeitura } from '@/utilitarios/numeros'
@@ -143,43 +143,45 @@ export function ApontamentoItemTela() {
           erro={achadoDe('frota_id')?.mensagem}
         />
 
-        <CampoLeitura
-          rotulo="Hodômetro inicial"
-          valor={r.odometro_inicial}
-          onMudar={(v) => mudar({ odometro_inicial: v })}
-          desabilitado={!!frota && !frota.tem_odometro}
-          motivoDesabilitado="Esta frota não tem hodômetro."
-          ultimaConhecida={ultimaDe(ctx, 'odometro')}
-          erro={achadoDe('odometro_inicial')?.mensagem}
-        />
+        <GrupoDeLeituras>
+          <CampoLeitura
+            rotulo="Hodômetro inicial"
+            valor={r.odometro_inicial}
+            onMudar={(v) => mudar({ odometro_inicial: v })}
+            desabilitado={!!frota && !frota.tem_odometro}
+            motivoDesabilitado="Esta frota não tem hodômetro."
+            ultimaConhecida={ultimaDe(ctx, 'odometro')}
+            erro={achadoDe('odometro_inicial')?.mensagem}
+          />
 
-        <CampoLeitura
-          rotulo="Hodômetro final"
-          valor={r.odometro_final}
-          onMudar={(v) => mudar({ odometro_final: v })}
-          desabilitado={!!frota && !frota.tem_odometro}
-          motivoDesabilitado="Esta frota não tem hodômetro."
-          erro={achadoDe('odometro_final')?.mensagem}
-        />
+          <CampoLeitura
+            rotulo="Hodômetro final"
+            valor={r.odometro_final}
+            onMudar={(v) => mudar({ odometro_final: v })}
+            desabilitado={!!frota && !frota.tem_odometro}
+            motivoDesabilitado="Esta frota não tem hodômetro."
+            erro={achadoDe('odometro_final')?.mensagem}
+          />
 
-        <CampoLeitura
-          rotulo="Elevador inicial"
-          valor={r.elevador_inicial}
-          onMudar={(v) => mudar({ elevador_inicial: v })}
-          desabilitado={!!frota && !frota.tem_horimetro_elevador}
-          motivoDesabilitado="Esta frota não tem elevador."
-          ultimaConhecida={ultimaDe(ctx, 'horimetro_elevador')}
-          erro={achadoDe('elevador_inicial')?.mensagem}
-        />
+          <CampoLeitura
+            rotulo="Elevador inicial"
+            valor={r.elevador_inicial}
+            onMudar={(v) => mudar({ elevador_inicial: v })}
+            desabilitado={!!frota && !frota.tem_horimetro_elevador}
+            motivoDesabilitado="Esta frota não tem elevador."
+            ultimaConhecida={ultimaDe(ctx, 'horimetro_elevador')}
+            erro={achadoDe('elevador_inicial')?.mensagem}
+          />
 
-        <CampoLeitura
-          rotulo="Elevador final"
-          valor={r.elevador_final}
-          onMudar={(v) => mudar({ elevador_final: v })}
-          desabilitado={!!frota && !frota.tem_horimetro_elevador}
-          motivoDesabilitado="Esta frota não tem elevador."
-          erro={achadoDe('elevador_final')?.mensagem}
-        />
+          <CampoLeitura
+            rotulo="Elevador final"
+            valor={r.elevador_final}
+            onMudar={(v) => mudar({ elevador_final: v })}
+            desabilitado={!!frota && !frota.tem_horimetro_elevador}
+            motivoDesabilitado="Esta frota não tem elevador."
+            erro={achadoDe('elevador_final')?.mensagem}
+          />
+        </GrupoDeLeituras>
 
         {r.odometro_inicial !== null && r.odometro_final !== null && (
           <Resumo rotulo="Rodou" valor={formatarLeitura(r.odometro_final - r.odometro_inicial) + ' km'} />
