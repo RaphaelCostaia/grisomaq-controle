@@ -4,13 +4,22 @@
     {
       "name": "grisomaq-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--", "--port", "5180"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5180",
+        "--host"
+      ],
       "port": 5180
     },
     {
       "name": "grisomaq-api",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["servidor/src/servidor-de-teste.ts"],
+      "runtimeArgs": [
+        "servidor/src/servidor-de-teste.ts"
+      ],
       "port": 3000
     }
   ]

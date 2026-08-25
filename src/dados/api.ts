@@ -1,4 +1,33 @@
-const BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')
+/**
+ * Endereço da API.
+ *
+ * Em desenvolvimento a API é anunciada como `localhost`. Aberto no CELULAR, na
+ * mesma rede, "localhost" é o próprio celular — a chamada iria para lugar
+ * nenhum e o app pareceria estar sem sinal. Quando a página não veio de
+ * localhost, a API mora no mesmo host de onde a página veio.
+ *
+ * Em produção `VITE_API_URL` aponta para um domínio de verdade e nada disto se
+ * aplica: só reescreve quando o endereço configurado é local.
+ */
+export function resolverBase(): string {
+  const configurada = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')
+  if (!configurada || typeof window === 'undefined') return configurada
+
+  const ehLocal = (host: string) => host === 'localhost' || host === '127.0.0.1' || host === '[::1]'
+
+  try {
+    const alvo = new URL(configurada)
+    if (ehLocal(alvo.hostname) && !ehLocal(window.location.hostname)) {
+      alvo.hostname = window.location.hostname
+      return alvo.toString().replace(/\/$/, '')
+    }
+  } catch {
+    // Endereço relativo (mesmo domínio da página): fica como veio.
+  }
+  return configurada
+}
+
+const BASE = resolverBase()
 
 export const apiConfigurada = BASE.length > 0
 

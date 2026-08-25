@@ -19,7 +19,11 @@ const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 
 process.env.DATABASE_URL ??= 'postgres://memoria'
 process.env.JWT_SEGREDO ??= 'segredo-de-desenvolvimento-nao-usar-em-producao'
-process.env.ORIGENS_PERMITIDAS ??= 'http://localhost:5180'
+// Quando o Vite abre para a rede, o celular chega com a origem
+// http://192.168.x.x:5180 — que o CORS recusaria. Em desenvolvimento o banco é
+// em memória e os dados são de mentira, então aceitar a rede local é seguro; o
+// gatilho é explícito (HOST vindo do plugin) e nunca vale em produção.
+process.env.ORIGENS_PERMITIDAS ??= process.env.HOST === '0.0.0.0' ? '*' : 'http://localhost:5180'
 process.env.NODE_ENV ??= 'production'
 
 const pg = new PGlite({ extensions: { pgcrypto, btree_gist, unaccent } })
@@ -220,7 +224,11 @@ app.addHook('preHandler', async (requisicao) => {
 // A porta vem de quem chamou (o plugin do Vite escolhe uma livre); 3000 fica
 // como padrão para quem sobe este arquivo direto no terminal.
 const porta = Number(process.env.PORTA ?? 3000)
-await app.listen({ port: porta, host: '127.0.0.1' })
+// 127.0.0.1 por padrão: a API de desenvolvimento não fica exposta sem que
+// alguém peça. O plugin passa 0.0.0.0 quando o Vite foi aberto para a rede,
+// que é quando o celular precisa alcançá-la.
+const host = process.env.HOST ?? '127.0.0.1'
+await app.listen({ port: porta, host })
 console.log('\nAPI de desenvolvimento em http://localhost:' + porta)
 console.log('Escritório: código 9001 · PIN 7196')
 console.log('Campo:      código 1001 · PIN 4731\n')

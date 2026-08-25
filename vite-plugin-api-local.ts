@@ -1,5 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { createConnection } from 'node:net'
+import { networkInterfaces } from 'node:os'
 import type { Plugin } from 'vite'
 
 /** Porta preferida. Cede a vez se já houver algo escutando nela. */
@@ -24,6 +25,17 @@ function ocupada(porta: number): Promise<boolean> {
     socket.once('timeout', () => encerrar(false))
     socket.once('error', () => encerrar(false))
   })
+}
+
+/** Endereços IPv4 desta máquina na rede local, para conferir no celular. */
+function enderecosDaRede(): string[] {
+  const encontrados: string[] = []
+  for (const lista of Object.values(networkInterfaces())) {
+    for (const iface of lista ?? []) {
+      if (iface.family === 'IPv4' && !iface.internal) encontrados.push(iface.address)
+    }
+  }
+  return encontrados
 }
 
 async function primeiraPortaLivre(inicial: number): Promise<number> {
@@ -95,10 +107,24 @@ export function apiLocal(): Plugin {
         registrar('porta ' + PORTA_PREFERIDA + ' ocupada por outro processo — usando ' + porta)
       }
 
+      // `--host` significa "quero alcançar isto de outro aparelho". A API tem
+      // de abrir junto, senão o celular carrega a tela e não fala com ninguém.
+      const abertoParaRede = Boolean(servidor.config.server.host)
+      if (abertoParaRede) {
+        for (const endereco of enderecosDaRede()) {
+          registrar('alcançável em http://' + endereco + ':' + porta)
+        }
+      }
+
       processo = spawn(process.execPath, ['servidor/src/servidor-de-teste.ts'], {
         cwd: servidor.config.root,
         stdio: ['ignore', 'pipe', 'pipe'],
-        env: { ...process.env, NODE_ENV: 'production', PORTA: String(porta) },
+        env: {
+          ...process.env,
+          NODE_ENV: 'production',
+          PORTA: String(porta),
+          ...(abertoParaRede ? { HOST: '0.0.0.0' } : {}),
+        },
       })
 
       // O log da API sai junto com o do Vite, com prefixo, para um erro de

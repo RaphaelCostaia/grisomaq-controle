@@ -17,7 +17,8 @@
     "verificar": "npm run typecheck && npm run servidor:typecheck && npm run test && npm run db:validar && npm run db:testar && npm run servidor:testar",
     "relatorios:exemplo": "vitest run src/relatorios",
     "servidor:testar": "node --test servidor/src/api.teste.ts",
-    "servidor:typecheck": "tsc --noEmit -p servidor/tsconfig.json"
+    "servidor:typecheck": "tsc --noEmit -p servidor/tsconfig.json",
+    "dev:rede": "vite --host"
   },
   "dependencies": {
     "@date-fns/tz": "^1.4.1",
