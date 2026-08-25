@@ -18,7 +18,8 @@
     "relatorios:exemplo": "vitest run src/relatorios",
     "servidor:testar": "node --test servidor/src/api.teste.ts",
     "servidor:typecheck": "tsc --noEmit -p servidor/tsconfig.json",
-    "dev:rede": "vite --host"
+    "dev:rede": "vite --host",
+    "preview:pwa": "vite build --mode preview && node servidor/src/preview.ts"
   },
   "dependencies": {
     "@date-fns/tz": "^1.4.1",

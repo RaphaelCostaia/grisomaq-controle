@@ -29,7 +29,18 @@ export function resolverBase(): string {
 
 const BASE = resolverBase()
 
-export const apiConfigurada = BASE.length > 0
+/**
+ * Servir o app e a API do mesmo endereço é um arranjo legítimo — é o que
+ * dispensa CORS e faz um único endereço HTTPS cobrir os dois. Nesse caso a base
+ * é vazia de propósito e as chamadas saem relativas.
+ *
+ * Vazio POR DESCUIDO é outra coisa: aí ninguém disse onde a API mora, e o app
+ * precisa dizer isso em vez de tentar falar com o servidor de arquivos. A
+ * diferença está em a variável existir (`''`) ou não existir (`undefined`).
+ */
+const mesmaOrigem = import.meta.env.VITE_API_URL === ''
+
+export const apiConfigurada = mesmaOrigem || BASE.length > 0
 
 const CHAVE_SESSAO = 'grisomaq.sessao'
 

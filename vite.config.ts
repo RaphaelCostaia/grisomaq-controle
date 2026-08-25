@@ -25,6 +25,11 @@ export default defineConfig({
       registerType: 'prompt',
       injectRegister: null,
       injectManifest: {
+        // Script classico em vez de modulo ES. Service worker como modulo so
+        // funciona em Chrome 91+ e Safari 15.4+; abaixo disso o registro falha
+        // inteiro — sem instalacao e sem offline. O parque de celulares de
+        // campo e velho e barato, e nao ha ganho em exigir o formato novo.
+        rollupFormat: 'iife',
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
         // O gerador de PDF e suas fontes ficam FORA do precache: são ~1,8 MB
         // que só o escritório usa, e ele tem internet. O gerador de Excel

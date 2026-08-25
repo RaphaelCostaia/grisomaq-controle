@@ -51,3 +51,30 @@ describe('endereço da API', () => {
     expect(await baseCom(undefined, 'localhost:5180')).toBe('')
   })
 })
+
+describe('API na mesma origem', () => {
+  async function configurada(apiUrl: string | undefined) {
+    vi.resetModules()
+    if (apiUrl === undefined) vi.stubEnv('VITE_API_URL', undefined as unknown as string)
+    else vi.stubEnv('VITE_API_URL', apiUrl)
+    const modulo = await import('./api')
+    return modulo.apiConfigurada
+  }
+
+  /**
+   * Servir o app e a API do mesmo endereço dispensa CORS e faz um endereço
+   * HTTPS só cobrir os dois — é o arranjo do preview e o mais simples de
+   * publicar. A base vazia aí é intencional, não descuido.
+   */
+  it('reconhece a base vazia declarada como configuração válida', async () => {
+    expect(await configurada('')).toBe(true)
+  })
+
+  it('continua acusando quando ninguém disse onde a API mora', async () => {
+    expect(await configurada(undefined)).toBe(false)
+  })
+
+  it('aceita endereço absoluto', async () => {
+    expect(await configurada('https://api.grisomaq.com.br')).toBe(true)
+  })
+})

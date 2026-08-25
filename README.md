@@ -61,6 +61,17 @@ com duas semanas de operação simulada. Reiniciar apaga tudo; o banco de verdad
 
 Entre com **9001 / 7196** (escritório) ou **1001 / 4731** (campo).
 
+Para testar o PWA de verdade — instalar no celular e usar sem sinal:
+
+```bash
+npm run preview:pwa
+```
+
+Constrói o aplicativo e o serve junto com a API **no mesmo endereço** (porta
+4180). Um endereço só significa nenhum CORS, nenhuma porta extra e um único
+túnel HTTPS quando for preciso — e instalar um PWA exige contexto seguro, então
+esse detalhe decide se dá para testar no celular ou não.
+
 Para rodar a pilha real, do jeito mais próximo da VPS (precisa de Docker):
 
 ```bash
