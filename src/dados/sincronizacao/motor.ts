@@ -1,5 +1,6 @@
 import { CHAVES_META, db, gravarMeta, totalPendentes } from '../db'
 import { apiConfigurada, temSessao } from '../api'
+import { enviarFotosPendentes } from '../fotos'
 import { atualizarEstadoSync, lerEstadoSync } from './estado'
 import { enviarLote } from './push'
 import { baixarAlteracoes } from './pull'
@@ -61,6 +62,18 @@ export async function sincronizarAgora(): Promise<void> {
       }
 
       const { erro: erroPull } = await baixarAlteracoes()
+
+      // Fotos entram por fila e endpoint separados: uma foto que falha não
+      // pode empurrar o abastecimento para conflito, e o resultado do envio
+      // NÃO influencia o "sync ok" — os números vieram, mesmo que a imagem
+      // ainda esteja em fila.
+      if (!erroPull) {
+        try {
+          await enviarFotosPendentes()
+        } catch (erro) {
+          console.error('[fotos] falha inesperada no envio', erro)
+        }
+      }
 
       const pendentes = await totalPendentes()
       const conflitos = await db.outbox.filter((i) => i.erro_codigo !== null && i.status === 'erro').count()

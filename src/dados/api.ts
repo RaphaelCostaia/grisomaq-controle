@@ -163,6 +163,8 @@ interface OpcoesChamada {
   corpo?: unknown
   autenticada?: boolean
   timeoutMs?: number
+  /** POST é o padrão; PUT quando o endpoint é idempotente por chave (foto). */
+  metodo?: 'POST' | 'PUT'
 }
 
 /**
@@ -170,17 +172,51 @@ interface OpcoesChamada {
  * o access token dura uma hora e o app fica horas sem falar com o servidor,
  * então expirar no meio de uma rodada de sincronização é rotina, não exceção.
  */
+/**
+ * Baixa um binário (imagem) com autenticação e devolve como Blob.
+ *
+ * `chamar` monta JSON no request e espera JSON na resposta — inadequado para
+ * imagem. Este helper compartilha só o cuidado com o token: uma renovação em
+ * caso de 401 e depois retenta a requisição.
+ */
+export async function baixarBinario(caminho: string): Promise<Blob> {
+  if (!apiConfigurada) throw new ErroApi(0, 'API_NAO_CONFIGURADA')
+
+  const executar = async (token: string | null): Promise<Response> =>
+    fetch(BASE + caminho, {
+      method: 'GET',
+      headers: token ? { Authorization: 'Bearer ' + token } : {},
+    })
+
+  let resposta = await executar(await tokenValido())
+  if (resposta.status === 401) {
+    const renovado = await renovarSessao()
+    resposta = await executar(renovado)
+  }
+  if (!resposta.ok) throw new ErroApi(resposta.status, await lerCodigo(resposta))
+  return resposta.blob()
+}
+
+async function lerCodigo(r: Response): Promise<string> {
+  try {
+    const j = (await r.json()) as { erro?: string }
+    return j.erro ?? String(r.status)
+  } catch {
+    return String(r.status)
+  }
+}
+
 export async function chamar<T>(caminho: string, opcoes: OpcoesChamada = {}): Promise<T> {
   if (!apiConfigurada) throw new ErroApi(0, 'API_NAO_CONFIGURADA')
 
-  const { corpo, autenticada = true, timeoutMs = 20_000 } = opcoes
+  const { corpo, autenticada = true, timeoutMs = 20_000, metodo = 'POST' } = opcoes
 
   const executar = async (token: string | null): Promise<Response> => {
     const controlador = new AbortController()
     const relogio = setTimeout(() => controlador.abort(), timeoutMs)
     try {
       return await fetch(BASE + caminho, {
-        method: 'POST',
+        method: metodo,
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: 'Bearer ' + token } : {}),

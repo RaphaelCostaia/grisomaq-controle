@@ -35,7 +35,7 @@ export async function rotasDoPainel(app: FastifyInstance): Promise<void> {
     const dias = Math.min(Math.max(Number(corpo?.dias ?? 30), 1), 180)
 
     return comoFuncionario(identidade, async (cliente) => {
-      const [caminhoes, abastecimento, apontamento, dispositivos, conflitos, assinaturas] =
+      const [caminhoes, abastecimento, apontamento, dispositivos, conflitos, assinaturas, fichasDivergentes] =
         await Promise.all([
           cliente.query(
             `select data, ciclos_concluidos, ciclos_abertos, permanencia_media_min, permanencia_p90_min
@@ -70,6 +70,30 @@ export async function rotasDoPainel(app: FastifyInstance): Promise<void> {
                     count(*) filter (where validacao_pin = 'invalida')::int as invalidas
                from public.vw_assinaturas_a_conferir`,
           ),
+          // O que o operador ESCREVEU quando a bomba não bateu. Sem esta linha,
+          // o painel dizia "1 ficha com diferença" e o motivo — que é o que
+          // decide se a divergência foi explicada ou se precisa investigar —
+          // ficava enterrado em Relatórios. Mostrar aqui evita o clique
+          // desnecessário e o esquecimento.
+          cliente.query(
+            `select a.id, a.numero_documento, a.data, a.hora,
+                    a.litros, a.divergencia_litros,
+                    a.justificativa_divergencia,
+                    f.numero as frota_numero,
+                    op.nome as operador_nome,
+                    (select id from public.anexos
+                      where tabela = 'abastecimentos' and registro_id = a.id
+                      order by criado_em desc limit 1) as foto_id
+               from public.abastecimentos a
+               left join public.frotas f on f.id = a.frota_id
+               left join public.funcionarios op on op.id = a.operador_funcionario_id
+              where a.data >= current_date - $1::integer
+                and not a.excluido
+                and abs(a.divergencia_litros) > 0.5
+              order by a.data desc, abs(a.divergencia_litros) desc
+              limit 20`,
+            [dias],
+          ),
         ])
 
       return {
@@ -80,6 +104,7 @@ export async function rotasDoPainel(app: FastifyInstance): Promise<void> {
         dispositivos_sem_sync: dispositivos.rows,
         conflitos_pendentes: conflitos.rows[0]?.total ?? 0,
         assinaturas: assinaturas.rows[0] ?? { total: 0, invalidas: 0 },
+        fichas_divergentes: fichasDivergentes.rows,
       }
     })
   })

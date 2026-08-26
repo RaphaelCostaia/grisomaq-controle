@@ -78,6 +78,10 @@ export class BaseGrisomaq extends Dexie {
   pin_verificadores!: EntityTable<VerificadorPin, 'funcionario_id'>
   meta!: EntityTable<Meta, 'chave'>
 
+  // Fotos aguardando envio. Vive separada da outbox porque o payload é
+  // binário e o motor as trata em fila própria — ver src/dados/fotos.ts.
+  foto_pendentes!: EntityTable<import('./fotos').FotoPendente, 'id'>
+
   constructor() {
     super('grisomaq_controle')
 
@@ -121,6 +125,13 @@ export class BaseGrisomaq extends Dexie {
     this.version(2).stores({
       abastecimentos: '&id, data, numero_documento, frota_id, comboio_frota_id, _sync, [data+_sync]',
       apontamentos: '&id, data, [data+frente_id+turno_id], _sync',
+    })
+
+    // Foto do horímetro em fila separada. `abastecimento_id` indexado para o
+    // formulário consultar rápido "esta ficha já tem foto pendente?"; a busca
+    // por próxima_tentativa_em usa scan simples porque a fila é pequena.
+    this.version(3).stores({
+      foto_pendentes: '&id, abastecimento_id, proxima_tentativa_em',
     })
   }
 }

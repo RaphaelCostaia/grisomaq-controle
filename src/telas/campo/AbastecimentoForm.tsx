@@ -23,6 +23,8 @@ import type { Achado } from '@/dominio/severidade'
 import { Botao } from '@/componentes/ui/Botao'
 import { CampoLeitura, GrupoDeLeituras } from '@/componentes/ui/CampoLeitura'
 import { SeletorBusca, type OpcaoSeletor } from '@/componentes/ui/SeletorBusca'
+import { CampoFoto } from '@/componentes/ui/CampoFoto'
+import { enfileirarFoto, fotoDoAbastecimento } from '@/dados/fotos'
 import { TelaAceite } from '@/componentes/ui/TelaAceite'
 import { useSessao } from '@/autenticacao/contexto'
 import { conferirPinLocal } from '@/autenticacao/pin-local'
@@ -39,6 +41,7 @@ export function AbastecimentoForm() {
   const [ctx, setCtx] = useState<ContextoAbastecimento | null>(null)
   const [salvando, setSalvando] = useState(false)
   const [assinando, setAssinando] = useState(false)
+  const [foto, setFoto] = useState<Blob | null>(null)
 
   const frotas = useLiveQuery(() => db.mestre_frotas.filter((f) => f.ativo).toArray(), [], [])
   const funcionarios = useLiveQuery(() => db.mestre_funcionarios.filter((f) => f.ativo).toArray(), [], [])
@@ -58,6 +61,9 @@ export function AbastecimentoForm() {
       const guardado = await recuperarRascunho<RascunhoAbastecimento>(CHAVE_RASCUNHO_ABASTECIMENTO)
       if (guardado) {
         setR(guardado)
+        // A foto do rascunho vive na tabela foto_pendentes: se o operador
+        // fotografou e depois recarregou a tela, a imagem volta com ele.
+        setFoto(await fotoDoAbastecimento(guardado.id))
         toast.info('Retomando a ficha que você estava preenchendo.')
         return
       }
@@ -132,6 +138,7 @@ export function AbastecimentoForm() {
     setSalvando(true)
     try {
       await salvarAbastecimento(r, sessao, pinDoAceite)
+      if (foto) await enfileirarFoto(r.id, foto)
       await descartarRascunho(CHAVE_RASCUNHO_ABASTECIMENTO)
       toast.success('Salvo no celular. Será enviado quando houver sinal.')
       navegar('/abastecimento')
@@ -280,6 +287,24 @@ export function AbastecimentoForm() {
           onEscolher={(id) => mudar({ operador_funcionario_id: id })}
           placeholder="Escolher"
           erro={achadoDe('operador_funcionario_id')?.mensagem}
+        />
+
+        {/*
+          Foto do horímetro. Sempre opcional — impedir o lançamento por falta
+          de foto travaria o abastecimento no talhão com câmera quebrada ou sem
+          luz. Fica destacada em âmbar quando há divergência: é aí que a foto
+          vira prova, e o operador percebe o pedido sem precisar ler nada.
+        */}
+        <CampoFoto
+          rotulo="Foto do horímetro"
+          descricao={
+            conferencia && !conferencia.confere
+              ? 'A divergência precisa de comprovação. Fotografe o horímetro.'
+              : 'Opcional. Fica arquivada com esta ficha.'
+          }
+          esperada={Boolean(conferencia && !conferencia.confere)}
+          valor={foto}
+          onMudar={setFoto}
         />
 
         {diagnostico.achados

@@ -9,6 +9,7 @@ import { rotasDeAutenticacao } from './rotas/autenticacao.ts'
 import { rotasDeSincronizacao } from './rotas/sincronizacao.ts'
 import { rotasDeAdministracao } from './rotas/administracao.ts'
 import { rotasDoPainel } from './rotas/painel.ts'
+import { rotasDeAnexos } from './rotas/anexos.ts'
 import { rotasDeCadastros } from './rotas/cadastros.ts'
 
 declare module 'fastify' {
@@ -83,6 +84,7 @@ export async function construirServidor() {
   await app.register(rotasDeSincronizacao)
   await app.register(rotasDeAdministracao)
   await app.register(rotasDoPainel)
+  await app.register(rotasDeAnexos)
   await app.register(rotasDeCadastros)
 
   app.setErrorHandler((erro: FastifyError, requisicao, resposta) => {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import {
   Bar,
@@ -12,8 +12,10 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { AlertTriangle, CheckCircle2, CloudOff, FileWarning, PenLine } from 'lucide-react'
+import { AlertTriangle, Image as ImageIcon, CheckCircle2, CloudOff, FileWarning, PenLine } from 'lucide-react'
 import { carregarResumo, type ResumoPainel } from '@/dados/painel'
+import { baixarBinario } from '@/dados/api'
+import { toast } from 'sonner'
 import { CabecalhoPainel } from '@/componentes/layout/LayoutAdmin'
 import { dataBr, duracaoCurta } from '@/utilitarios/datas'
 import { formatarLitros, formatarNumero, formatarHoras, contar } from '@/utilitarios/numeros'
@@ -242,6 +244,63 @@ export function Dashboard() {
           </Painel>
         </section>
 
+        {resumo.fichas_divergentes.length > 0 && (
+          <Painel
+            titulo="Fichas com diferença de litros"
+            descricao="O motivo é o que decide se está tudo bem ou se precisa investigar. Sem justificativa, é diesel saindo sem lançamento."
+          >
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b-2 border-[var(--cor-borda-forte)] text-left">
+                  <Th>Data</Th>
+                  <Th>Ficha</Th>
+                  <Th>Frota</Th>
+                  <Th className="text-right">Litros</Th>
+                  <Th className="text-right">Diferença</Th>
+                  <Th>Operador</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {resumo.fichas_divergentes.map((f) => (
+                  <Fragment key={f.id}>
+                    <tr className="border-b border-[var(--cor-borda-fina)]">
+                      <Td className="whitespace-nowrap">{dataBr(f.data)} · {String(f.hora).slice(0, 5)}</Td>
+                      <Td className="font-mono font-bold text-[var(--carmim)]">{f.numero_documento}</Td>
+                      <Td>{f.frota_numero ?? '—'}</Td>
+                      <Td className="numerico text-right">{formatarLitros(f.litros)}</Td>
+                      <Td className="numerico text-right font-bold text-aviso-500">
+                        {Number(f.divergencia_litros) > 0 ? '+' : ''}{formatarLitros(f.divergencia_litros)}
+                      </Td>
+                      <Td className="text-[var(--cor-texto-suave)]">
+                        <span className="mr-2">{f.operador_nome ?? '—'}</span>
+                        {f.foto_id && <BotaoFoto anexoId={f.foto_id} />}
+                      </Td>
+                    </tr>
+                    {/* O motivo é o que interessa. Uma linha secundária, indentada,
+                        para caber sem apertar as colunas de dados acima. Sem motivo
+                        vira alerta explícito: essa é a ficha que precisa ser
+                        investigada, e o escritório precisa vê-la de longe. */}
+                    <tr className="border-b-2 border-[var(--cor-borda)]">
+                      <Td colSpan={6} className="pt-0 pl-2 pb-3">
+                        {f.justificativa_divergencia ? (
+                          <span className="italic text-[var(--cor-texto)]">
+                            <span className="mr-2 font-mono text-xs uppercase tracking-widest text-[var(--cor-texto-suave)]">motivo</span>
+                            &ldquo;{f.justificativa_divergencia}&rdquo;
+                          </span>
+                        ) : (
+                          <span className="font-semibold text-carmim-600">
+                            Sem justificativa. Investigar antes do fechamento.
+                          </span>
+                        )}
+                      </Td>
+                    </tr>
+                  </Fragment>
+                ))}
+              </tbody>
+            </table>
+          </Painel>
+        )}
+
         {resumo.dispositivos_sem_sync.length > 0 && (
           <Painel
             titulo="Celulares sem enviar"
@@ -375,6 +434,50 @@ function Th({ children, className }: { children: React.ReactNode; className?: st
   )
 }
 
-function Td({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <td className={cls('py-2.5', className)}>{children}</td>
+function BotaoFoto({ anexoId }: { anexoId: string }) {
+  const [abrindo, setAbrindo] = useState(false)
+
+  /**
+   * Abre a foto em aba nova. O endpoint exige Authorization; um `<a href>` cru
+   * seria 401. Baixa via fetch autenticado, gera um blob URL local e abre.
+   *
+   * `window.open` chamado dentro do handler do clique preserva o "aberto pelo
+   * usuário" e escapa do bloqueador de pop-ups; para isso a URL final precisa
+   * ser passada logo em seguida, mesmo que a foto ainda esteja chegando.
+   */
+  async function abrir() {
+    setAbrindo(true)
+    // Abrir a aba DENTRO do handler preserva o gesto do usuário e escapa do
+    // bloqueador de pop-ups; a URL final é setada quando a foto chegar.
+    const nova = window.open('', '_blank')
+    try {
+      const blob = await baixarBinario('/anexos/' + anexoId + '/arquivo')
+      const url = URL.createObjectURL(blob)
+      if (nova) nova.location.href = url
+      else window.open(url, '_blank')
+      // Não revogo aqui: se revogar imediatamente, a aba nova perde a imagem
+      // antes de terminar de carregar. Fica na memória até fechar a página.
+    } catch (erro) {
+      nova?.close()
+      toast.error(erro instanceof Error ? erro.message : 'Não foi possível baixar a foto.')
+    } finally {
+      setAbrindo(false)
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => void abrir()}
+      disabled={abrindo}
+      className="inline-flex items-center gap-1 border border-[var(--cor-borda)] px-2 py-0.5 text-xs font-semibold text-[var(--cor-texto)] hover:bg-[var(--cor-superficie)] disabled:opacity-40"
+    >
+      <ImageIcon aria-hidden className="size-3.5" />
+      {abrindo ? 'abrindo…' : 'ver foto'}
+    </button>
+  )
+}
+
+function Td({ children, className, colSpan }: { children: React.ReactNode; className?: string; colSpan?: number }) {
+  return <td colSpan={colSpan} className={cls('py-2.5', className)}>{children}</td>
 }

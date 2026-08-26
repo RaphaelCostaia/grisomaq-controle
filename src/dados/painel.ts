@@ -52,6 +52,20 @@ export interface ResumoPainel {
   dispositivos_sem_sync: DispositivoParado[]
   conflitos_pendentes: number
   assinaturas: { total: number; invalidas: number }
+  fichas_divergentes: FichaDivergente[]
+}
+
+export interface FichaDivergente {
+  id: string
+  numero_documento: number
+  data: string
+  hora: string
+  litros: number | string
+  divergencia_litros: number | string
+  justificativa_divergencia: string | null
+  frota_numero: string | null
+  operador_nome: string | null
+  foto_id: string | null
 }
 
 export interface Conflito {
