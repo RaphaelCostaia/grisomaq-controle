@@ -395,7 +395,7 @@ describe('administração', () => {
     const { corpo } = await entrar('1001', '4731')
     const r = await app.inject({
       method: 'POST',
-      url: '/admin/provisionar-funcionario',
+      url: '/painel/provisionar-funcionario',
       headers: comToken(corpo),
       payload: { funcionario_id: ID.outro },
     })
@@ -408,7 +408,7 @@ describe('administração', () => {
 
     const r = await app.inject({
       method: 'POST',
-      url: '/admin/provisionar-funcionario',
+      url: '/painel/provisionar-funcionario',
       headers: comToken(admin.corpo),
       payload: { funcionario_id: ID.outro },
     })

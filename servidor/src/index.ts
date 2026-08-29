@@ -11,6 +11,7 @@ import { rotasDeAdministracao } from './rotas/administracao.ts'
 import { rotasDoPainel } from './rotas/painel.ts'
 import { rotasDeAnexos } from './rotas/anexos.ts'
 import { rotasDeCadastros } from './rotas/cadastros.ts'
+import { servirEstatico } from './servir-estatico.ts'
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -86,6 +87,15 @@ export async function construirServidor() {
   await app.register(rotasDoPainel)
   await app.register(rotasDeAnexos)
   await app.register(rotasDeCadastros)
+
+  // Publicar o PWA no mesmo endereço da API é opcional — em desenvolvimento o
+  // Vite serve o front. Em produção define-se `SERVIR_DIST=1` e o servidor
+  // entrega o build junto: um domínio só, sem CORS, um serviço a menos para
+  // monitorar. É o formato do deploy no EasyPanel.
+  if (process.env.SERVIR_DIST === '1') {
+    const dir = process.env.DIST_DIR ?? '/app/dist'
+    servirEstatico(app, dir)
+  }
 
   app.setErrorHandler((erro: FastifyError, requisicao, resposta) => {
     requisicao.log.error({ erro: erro.message }, 'falha na requisição')

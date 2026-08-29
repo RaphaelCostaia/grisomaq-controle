@@ -7,7 +7,7 @@
  *
  *   node servidor/src/servidor-de-teste.ts
  */
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { PGlite } from '@electric-sql/pglite'
@@ -182,80 +182,15 @@ await pg.exec(`
   values ('disp-parado', '01920000-0000-7000-8000-000000000002', '0.1.0', now() - interval '31 hours');
 `)
 
+// O index.ts serve o PWA construído quando SERVIR_DIST=1. Como o dist local
+// mora na raiz do repo (não em /app/dist como no container), aponto DIST_DIR
+// ANTES de construir o servidor.
+if (process.env.SERVIR_DIST === '1') {
+  process.env.DIST_DIR = process.env.DIST_DIR ?? join(RAIZ, 'dist')
+}
+
 const { construirServidor } = await import('./index.ts')
 const app = await construirServidor()
-
-/**
- * Serve o PWA construído no MESMO endereço da API.
- *
- * É o formato que dispensa CORS e faz um único endereço HTTPS cobrir os dois —
- * o que importa porque instalar um PWA e guardá-lo offline exigem contexto
- * seguro, e um túnel HTTPS só encaminha uma porta.
- */
-if (process.env.SERVIR_DIST === '1') {
-  const DIST = join(RAIZ, 'dist')
-
-  const TIPOS: Record<string, string> = {
-    '.html': 'text/html; charset=utf-8',
-    '.js': 'text/javascript; charset=utf-8',
-    '.css': 'text/css; charset=utf-8',
-    '.json': 'application/json; charset=utf-8',
-    '.webmanifest': 'application/manifest+json; charset=utf-8',
-    '.svg': 'image/svg+xml',
-    '.png': 'image/png',
-    '.ico': 'image/x-icon',
-    '.woff2': 'font/woff2',
-    '.map': 'application/json; charset=utf-8',
-  }
-
-  const ehArquivo = (caminho: string) => {
-    try {
-      return statSync(caminho).isFile()
-    } catch {
-      return false
-    }
-  }
-
-  app.setNotFoundHandler((requisicao, resposta) => {
-    // Rota da API que não existe continua sendo 404 de API. Sem isto, um erro
-    // de digitação num endpoint devolveria a página do app e o cliente tentaria
-    // interpretar HTML como JSON — erro que não diz nada a quem lê.
-    const url = requisicao.url.split('?')[0] ?? '/'
-    if (/^\/(auth|sync|painel|admin|assinaturas|saude)/.test(url)) {
-      return resposta.code(404).send({ erro: 'ROTA_INEXISTENTE' })
-    }
-
-    const arquivo = join(DIST, url === '/' ? 'index.html' : url.replace(/^\/+/, ''))
-    const dentroDoDist = arquivo.startsWith(DIST)
-
-    if (dentroDoDist && ehArquivo(arquivo)) {
-      const extensao = arquivo.slice(arquivo.lastIndexOf('.'))
-      // O service worker e o HTML NÃO podem ser cacheados pelo navegador: se
-      // forem, uma versão nova nunca chega e o app fica preso na antiga para
-      // sempre. Os demais arquivos têm hash no nome e podem ser eternos.
-      const volátil = extensao === '.html' || url === '/sw.js' || extensao === '.webmanifest'
-      return resposta
-        .header('content-type', TIPOS[extensao] ?? 'application/octet-stream')
-        .header('cache-control', volátil ? 'no-cache' : 'public, max-age=31536000, immutable')
-        .send(readFileSync(arquivo))
-    }
-
-    // Navegação de rota do app (/abastecimento, /admin/…): entrega o index e
-    // deixa o roteador resolver. Um arquivo que não existe, porém, é 404 de
-    // verdade — devolver HTML no lugar de um .js some com o erro.
-    if (extensaoDeArquivo(url)) return resposta.code(404).send({ erro: 'ARQUIVO_INEXISTENTE' })
-
-    return resposta
-      .header('content-type', 'text/html; charset=utf-8')
-      .header('cache-control', 'no-cache')
-      .send(readFileSync(join(DIST, 'index.html')))
-  })
-}
-
-function extensaoDeArquivo(url: string): boolean {
-  const ultimo = url.slice(url.lastIndexOf('/') + 1)
-  return ultimo.includes('.')
-}
 
 /**
  * Aloca uma faixa de numeração ao celular que entrar, se ele ainda não tiver.

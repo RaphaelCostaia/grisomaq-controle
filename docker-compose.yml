@@ -1,10 +1,12 @@
 # Sobe a pilha completa localmente, do jeito mais próximo possível da VPS.
 #
-# No EasyPanel cada serviço é criado pela interface (App + Postgres) e o Traefik
-# cuida de domínio e HTTPS — este arquivo não é aplicado lá. Ele existe para
-# testar o conjunto antes de publicar, e para documentar o que a VPS precisa ter.
+# No EasyPanel cada serviço é criado pela interface — este arquivo não é
+# aplicado lá. Ele existe para testar o conjunto antes de publicar, e para
+# documentar o que a VPS precisa ter.
 #
 #   docker compose up --build
+#
+# Depois disso o app fica em http://localhost:8080 (PWA + API na mesma origem).
 
 services:
   banco:
@@ -31,10 +33,16 @@ services:
         limits:
           memory: 1500M
 
-  api:
+  web:
     build:
       context: .
-      dockerfile: servidor/Dockerfile
+      dockerfile: Dockerfile
+      args:
+        # Vazio de propósito: o app usa a MESMA origem para a API, então não
+        # precisa saber o domínio. Um deploy só, sem CORS, sem porta extra.
+        VITE_API_URL: ''
+        VITE_APP_VERSAO: ${VITE_APP_VERSAO:-0.1.0}
+        VITE_CHAVE_PUBLICA_ASSINATURA: ${VITE_CHAVE_PUBLICA_ASSINATURA:-}
     restart: unless-stopped
     depends_on:
       banco:
@@ -43,30 +51,16 @@ services:
       DATABASE_URL: postgres://grisomaq:${POSTGRES_PASSWORD:-trocar-esta-senha}@banco:5432/grisomaq
       JWT_SEGREDO: ${JWT_SEGREDO:?defina JWT_SEGREDO}
       CHAVE_PRIVADA_ASSINATURA: ${CHAVE_PRIVADA_ASSINATURA:-}
-      ORIGENS_PERMITIDAS: ${ORIGENS_PERMITIDAS:-http://localhost:8080}
+      # Com mesma origem o navegador nunca faz preflight cross-origin — o CORS
+      # continua declarado por segurança se algum dia mudar para dois domínios.
+      ORIGENS_PERMITIDAS: ${ORIGENS_PERMITIDAS:-*}
       NODE_ENV: production
     ports:
-      - '3000:3000'
+      - '8080:3000'
     deploy:
       resources:
         limits:
           memory: 512M
-
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        VITE_API_URL: ${VITE_API_URL:-http://localhost:3000}
-        VITE_APP_VERSAO: ${VITE_APP_VERSAO:-0.1.0}
-        VITE_CHAVE_PUBLICA_ASSINATURA: ${VITE_CHAVE_PUBLICA_ASSINATURA:-}
-    restart: unless-stopped
-    ports:
-      - '8080:80'
-    deploy:
-      resources:
-        limits:
-          memory: 128M
 
 volumes:
   dados-postgres:

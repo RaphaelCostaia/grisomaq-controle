@@ -14,7 +14,7 @@ export async function rotasDeAdministracao(app: FastifyInstance): Promise<void> 
    * mãos. Ele não fica recuperável depois: se o funcionário esquecer, o caminho
    * é gerar outro, não consultar o antigo.
    */
-  app.post('/admin/provisionar-funcionario', async (requisicao, resposta) => {
+  app.post('/painel/provisionar-funcionario', async (requisicao, resposta) => {
     const identidade = requisicao.identidade
     if (!identidade) return resposta.code(401).send({ erro: 'SEM_SESSAO' })
     if (identidade.papel !== 'admin') return resposta.code(403).send({ erro: 'SEM_PERMISSAO' })

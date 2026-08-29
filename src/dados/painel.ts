@@ -118,7 +118,7 @@ export interface PinProvisionado {
 }
 
 export const provisionarPin = (funcionarioId: string) =>
-  chamar<PinProvisionado>('/admin/provisionar-funcionario', { corpo: { funcionario_id: funcionarioId } })
+  chamar<PinProvisionado>('/painel/provisionar-funcionario', { corpo: { funcionario_id: funcionarioId } })
 
 /** Destrava quem errou o PIN cinco vezes, mantendo o PIN que ele já sabe. */
 export const liberarAcesso = (funcionarioId: string) =>
