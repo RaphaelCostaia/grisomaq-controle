@@ -11,6 +11,7 @@ import {
 } from '@/dados/painel'
 import { CabecalhoPainel } from '@/componentes/layout/LayoutAdmin'
 import { Botao } from '@/componentes/ui/Botao'
+import { mensagemDe } from '@/dados/api'
 import { dataHoraBr } from '@/utilitarios/datas'
 import { cls } from '@/utilitarios/classes'
 
@@ -34,7 +35,7 @@ export function Funcionarios() {
     try {
       setFuncionarios(await carregarFuncionarios())
     } catch (erro) {
-      toast.error(erro instanceof Error ? erro.message : 'Falha ao carregar.')
+      toast.error(mensagemDe(erro, 'Falha ao carregar.'))
       setFuncionarios([])
     }
   }
@@ -48,12 +49,9 @@ export function Funcionarios() {
       setEditando(null)
       await recarregar()
     } catch (erro) {
-      const codigo = erro instanceof Error ? erro.message : ''
-      toast.error(
-        codigo.includes('CODIGO_JA_USADO')
-          ? 'Este código já está com outro funcionário.'
-          : 'Não foi possível salvar.',
-      )
+      // `mensagemDe` já traduz CODIGO_JA_USADO e os demais códigos comuns via
+      // o mapa central em api.ts — cada tela não precisa mais listar códigos.
+      toast.error(mensagemDe(erro, 'Não foi possível salvar.'))
     } finally {
       setOcupado(false)
     }
@@ -65,7 +63,7 @@ export function Funcionarios() {
       setPinGerado(await provisionarPin(f.id))
       await recarregar()
     } catch (erro) {
-      toast.error(erro instanceof Error ? erro.message : 'Não foi possível gerar o PIN.')
+      toast.error(mensagemDe(erro, 'Não foi possível gerar o PIN.'))
     } finally {
       setOcupado(false)
     }
@@ -85,7 +83,7 @@ export function Funcionarios() {
       await recarregar()
       toast.success(f.nome.split(' ')[0] + ' já pode entrar com o PIN de sempre.')
     } catch (erro) {
-      toast.error(erro instanceof Error ? erro.message : 'Não foi possível liberar.')
+      toast.error(mensagemDe(erro, 'Não foi possível liberar.'))
     } finally {
       setOcupado(false)
     }

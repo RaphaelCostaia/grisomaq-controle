@@ -97,8 +97,16 @@ NODE_ENV=production
 DATABASE_URL=postgres://USUARIO:SENHA@NOME_DO_SERVICO_DO_BANCO:5432/grisomaq
 JWT_SEGREDO=<o gerado>
 CHAVE_PRIVADA_ASSINATURA=<a privada do gerador>
-ORIGENS_PERMITIDAS=*
+ORIGENS_PERMITIDAS=https://SEU-SUBDOMINIO.easypanel.host
 ```
+
+**Sobre `ORIGENS_PERMITIDAS`.** Com o app e a API no mesmo endereço o navegador
+nunca faz preflight cross-origin, então em tese qualquer valor funciona. Mas
+deixar `*` cravado como padrão é uma armadilha: o dia em que alguém publicar
+um subdomínio separado (`admin.grisomaq.com.br`, por exemplo), qualquer site
+na internet poderá chamar a API com um token roubado por XSS. Preencha com o
+domínio HTTPS exato do serviço agora — assim, quando o domínio próprio entrar,
+você troca aqui e a defesa em profundidade continua.
 
 As migrations são aplicadas sozinhas na subida do contêiner, uma por transação
 e registradas ao serem aplicadas — reiniciar não reaplica nada. **Se uma

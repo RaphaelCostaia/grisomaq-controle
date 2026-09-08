@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
+import { mensagemDe } from '@/dados/api'
 import { AlertTriangle, ArrowLeft, Check, TriangleAlert } from 'lucide-react'
 import { db } from '@/dados/db'
 import {
@@ -94,7 +95,7 @@ export function ApontamentoItemTela() {
       navegar('/apontamento/' + apontamentoId)
     } catch (erro) {
       vibrar('erro')
-      toast.error(erro instanceof Error ? erro.message : 'Não foi possível salvar.')
+      toast.error(mensagemDe(erro, 'Não foi possível salvar.'))
       setSalvando(false)
     }
   }

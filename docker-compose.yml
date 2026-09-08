@@ -51,9 +51,12 @@ services:
       DATABASE_URL: postgres://grisomaq:${POSTGRES_PASSWORD:-trocar-esta-senha}@banco:5432/grisomaq
       JWT_SEGREDO: ${JWT_SEGREDO:?defina JWT_SEGREDO}
       CHAVE_PRIVADA_ASSINATURA: ${CHAVE_PRIVADA_ASSINATURA:-}
-      # Com mesma origem o navegador nunca faz preflight cross-origin — o CORS
-      # continua declarado por segurança se algum dia mudar para dois domínios.
-      ORIGENS_PERMITIDAS: ${ORIGENS_PERMITIDAS:-*}
+      # Com mesma origem o navegador nunca faz preflight cross-origin, mas o
+      # padrão explícito serve como defesa em profundidade: se um dia alguém
+      # publicar um subdomínio separado, deixar `*` cravado seria porta aberta
+      # para qualquer site na internet chamar a API com token roubado por XSS.
+      # Em produção, aponte para o(s) domínio(s) HTTPS exato(s).
+      ORIGENS_PERMITIDAS: ${ORIGENS_PERMITIDAS:-http://localhost:8080}
       NODE_ENV: production
     ports:
       - '8080:3000'

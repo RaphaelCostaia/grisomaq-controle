@@ -1,5 +1,5 @@
 import { CHAVES_META, db, gravarMeta, totalPendentes } from '../db'
-import { apiConfigurada, temSessao } from '../api'
+import { apiConfigurada, mensagemDe, temSessao } from '../api'
 import { enviarFotosPendentes } from '../fotos'
 import { atualizarEstadoSync, lerEstadoSync } from './estado'
 import { enviarLote } from './push'
@@ -95,7 +95,10 @@ export async function sincronizarAgora(): Promise<void> {
     } catch (erro) {
       atualizarEstadoSync({
         situacao: 'erro',
-        ultimoErro: erro instanceof Error ? erro.message : String(erro),
+        // `mensagemDe` traduz o código do servidor para uma frase que o
+        // operador entende — sem isso o `FALHA_INTERNA` cru aparecia no topo
+        // da tela do campo, humilhando o produto e sem dizer o que fazer.
+        ultimoErro: mensagemDe(erro),
         pendentes: await totalPendentes(),
       })
     } finally {

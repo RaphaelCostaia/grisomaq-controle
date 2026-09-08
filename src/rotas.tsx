@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router'
 import { useAutenticacao } from '@/autenticacao/contexto'
 import { Entrar } from '@/telas/campo/Entrar'
+import { TrocarPin } from '@/telas/campo/TrocarPin'
 import { Abastecimentos } from '@/telas/campo/Abastecimentos'
 import { AbastecimentoForm } from '@/telas/campo/AbastecimentoForm'
 import { Patio } from '@/telas/campo/Patio'
@@ -31,6 +32,19 @@ export function Rotas() {
     return (
       <Routes>
         <Route path="*" element={<Entrar />} />
+      </Routes>
+    )
+  }
+
+  // Troca obrigatória de PIN. O servidor devolve `trocar_pin: true` para todo
+  // primeiro acesso (o PIN veio impresso na folha), e o app não pode entregar
+  // NENHUMA outra tela antes da troca — senão o PIN em papel guardado no
+  // capacete valeria para sempre, exatamente o cenário que a assinatura por
+  // PIN quer evitar. `TrocarPin` já cuida de atualizar a sessão ao terminar.
+  if (sessao.trocar_pin) {
+    return (
+      <Routes>
+        <Route path="*" element={<TrocarPin />} />
       </Routes>
     )
   }

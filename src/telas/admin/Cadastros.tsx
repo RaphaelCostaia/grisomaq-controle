@@ -10,7 +10,7 @@ import {
   type Campo,
 } from './definicoes-cadastro'
 import { carregarFuncionarios } from '@/dados/painel'
-import { ErroApi } from '@/dados/api'
+import { ErroApi, mensagemDe } from '@/dados/api'
 import { CabecalhoPainel } from '@/componentes/layout/LayoutAdmin'
 import { Botao } from '@/componentes/ui/Botao'
 import { Parametros } from './Parametros'
@@ -32,7 +32,7 @@ export function Cadastros() {
     try {
       setRegistros(await listarCadastro(definicao.chave))
     } catch (erro) {
-      toast.error(erro instanceof Error ? erro.message : 'Falha ao carregar.')
+      toast.error(mensagemDe(erro, 'Falha ao carregar.'))
       setRegistros([])
     }
   }, [definicao.chave])

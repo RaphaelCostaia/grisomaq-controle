@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Download, FileText, Search } from 'lucide-react'
 import { carregarLancamentos } from '@/dados/painel'
+import { mensagemDe } from '@/dados/api'
 import { CabecalhoPainel } from '@/componentes/layout/LayoutAdmin'
 import { Botao } from '@/componentes/ui/Botao'
 import { entregarArquivo } from '@/relatorios/exportar'
@@ -109,7 +110,7 @@ export function Relatorios() {
     try {
       setLinhas(await carregarLancamentos(ficha.chave, de, ate))
     } catch (erro) {
-      toast.error(erro instanceof Error ? erro.message : 'Falha na consulta.')
+      toast.error(mensagemDe(erro, 'Falha na consulta.'))
       setLinhas([])
     } finally {
       setBuscando(false)
@@ -179,7 +180,7 @@ export function Relatorios() {
       await entregarArquivo(blob, nome + '.xlsx')
       toast.success('Planilha gerada.')
     } catch (erro) {
-      toast.error(erro instanceof Error ? erro.message : 'Não foi possível gerar.')
+      toast.error(mensagemDe(erro, 'Não foi possível gerar.'))
     } finally {
       setExportando(false)
     }

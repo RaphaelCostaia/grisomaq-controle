@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
+import { mensagemDe } from '@/dados/api'
 import { AlertTriangle, ArrowLeft, Check, TriangleAlert } from 'lucide-react'
 import { db } from '@/dados/db'
 import {
@@ -144,7 +145,7 @@ export function AbastecimentoForm() {
       navegar('/abastecimento')
     } catch (erro) {
       vibrar('erro')
-      toast.error(erro instanceof Error ? erro.message : 'Não foi possível salvar.')
+      toast.error(mensagemDe(erro, 'Não foi possível salvar.'))
       setSalvando(false)
       setAssinando(false)
     }

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Link } from 'react-router'
 import { toast } from 'sonner'
+import { mensagemDe } from '@/dados/api'
 import { AlertTriangle, Check, Clock, Plus, RefreshCw, Share2 } from 'lucide-react'
 import { db } from '@/dados/db'
 import { blocoDoDispositivo } from '@/dados/repositorios/abastecimentos'
@@ -106,7 +107,7 @@ async function exportarDia(data: string, setExportando: (v: boolean) => void) {
     const destino = await entregarArquivo(blob, 'ABASTECIMENTO ' + data + '.xlsx')
     toast.success(destino === 'compartilhado' ? 'Ficha enviada.' : 'Ficha salva no aparelho.')
   } catch (erro) {
-    toast.error(erro instanceof Error ? erro.message : 'Não foi possível gerar a ficha.')
+    toast.error(mensagemDe(erro, 'Não foi possível gerar a ficha.'))
   } finally {
     setExportando(false)
   }

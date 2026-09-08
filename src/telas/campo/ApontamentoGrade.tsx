@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Link, useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
+import { mensagemDe } from '@/dados/api'
 import { AlertTriangle, ArrowLeft, Check, Clock, FileText, Lock, PenLine, Plus, Share2 } from 'lucide-react'
 import { db } from '@/dados/db'
 import { fecharApontamento, itensDoApontamento, paraRascunhoItem } from '@/dados/repositorios/apontamentos'
@@ -52,7 +53,7 @@ export function ApontamentoGrade() {
       navegar('/apontamento')
     } catch (erro) {
       vibrar('erro')
-      toast.error(erro instanceof Error ? erro.message : 'Não foi possível fechar.')
+      toast.error(mensagemDe(erro, 'Não foi possível fechar.'))
       setFechando(false)
     }
   }
@@ -234,7 +235,7 @@ async function exportarFicha(
     )
     toast.success(destino === 'compartilhado' ? 'Ficha enviada.' : 'Ficha salva no aparelho.')
   } catch (erro) {
-    toast.error(erro instanceof Error ? erro.message : 'Não foi possível gerar a ficha.')
+    toast.error(mensagemDe(erro, 'Não foi possível gerar a ficha.'))
   } finally {
     setExportando(false)
   }

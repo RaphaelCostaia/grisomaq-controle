@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Link } from 'react-router'
 import { toast } from 'sonner'
+import { mensagemDe } from '@/dados/api'
 import { LogOut, Plus, Share2, Truck } from 'lucide-react'
 import { db, lerMeta } from '@/dados/db'
 import { ciclosAbertos, ciclosConcluidosDoDia, registrarSaida } from '@/dados/repositorios/caminhoes'
@@ -52,7 +53,7 @@ export function Patio() {
       toast.success('Saída registrada. ' + duracaoCurta(permanencia) + ' no campo.')
     } catch (erro) {
       vibrar('erro')
-      toast.error(erro instanceof Error ? erro.message : 'Não foi possível registrar a saída.')
+      toast.error(mensagemDe(erro, 'Não foi possível registrar a saída.'))
     } finally {
       setFechando(null)
     }
@@ -140,7 +141,7 @@ async function exportarDia(setExportando: (v: boolean) => void) {
     const destino = await entregarArquivo(blob, 'CAMINHOES ' + hoje + '.xlsx')
     toast.success(destino === 'compartilhado' ? 'Controle enviado.' : 'Controle salvo no aparelho.')
   } catch (erro) {
-    toast.error(erro instanceof Error ? erro.message : 'Não foi possível gerar o controle.')
+    toast.error(mensagemDe(erro, 'Não foi possível gerar o controle.'))
   } finally {
     setExportando(false)
   }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Lock, LockOpen, TriangleAlert, X } from 'lucide-react'
-import { chamar, ErroApi } from '@/dados/api'
+import { chamar, ErroApi, mensagemDe } from '@/dados/api'
 import { CabecalhoPainel } from '@/componentes/layout/LayoutAdmin'
 import { Botao } from '@/componentes/ui/Botao'
 import { dataBr, dataHoraBr, hojeOperacional } from '@/utilitarios/datas'
@@ -52,7 +52,7 @@ export function Fechamentos() {
     try {
       setFechamentos(await carregar())
     } catch (erro) {
-      toast.error(erro instanceof Error ? erro.message : 'Falha ao carregar.')
+      toast.error(mensagemDe(erro, 'Falha ao carregar.'))
       setFechamentos([])
     }
   }

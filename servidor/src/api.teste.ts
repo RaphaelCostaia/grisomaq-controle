@@ -71,7 +71,9 @@ const ID = {
 
 let app: Awaited<ReturnType<typeof construir>>
 type Construir = typeof import('./index.ts').construirServidor
+type ChaveDeRateLimit = typeof import('./index.ts').chaveDeRateLimit
 let construir: Construir
+let chaveDeRateLimit: ChaveDeRateLimit
 
 before(async () => {
   await pg.exec(`
@@ -105,7 +107,9 @@ before(async () => {
     select public.fn_definir_pin('${ID.admin}',    '7196', null, false);
   `)
 
-  construir = (await import('./index.ts')).construirServidor
+  const modulo = await import('./index.ts')
+  construir = modulo.construirServidor
+  chaveDeRateLimit = modulo.chaveDeRateLimit
   app = await construir()
 })
 
@@ -829,5 +833,91 @@ describe('saúde', () => {
     const r = await app.inject({ method: 'GET', url: '/saude' })
     assert.equal(r.statusCode, 200)
     assert.equal(r.json().ok, true)
+  })
+})
+
+describe('quota específica do upload de foto', () => {
+  /**
+   * O rate-limit local do PUT /abastecimento/:id/foto vale 30/min por
+   * dispositivo. Aqui não interessa o resultado do handler — importa que a
+   * 31ª chamada seja recusada antes de chegar nele.
+   *
+   * O ID do abastecimento é inexistente de propósito: o handler daria 404,
+   * mas o rate-limit corre antes do handler. Se a chamada 31 retorna 429,
+   * o limite está no lugar certo.
+   */
+  it('trava depois de 30 uploads por minuto do mesmo dispositivo', async () => {
+    const jpegMinimo = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x00, 0xff, 0xd9]).toString('base64')
+    const payload = { tipo: 'image/jpeg', dados: jpegMinimo }
+    const idFalso = '00000000-0000-7000-8000-000000000000'
+    const dispositivo = 'celular-quota'
+
+    let ultimoStatus = 0
+    for (let i = 0; i < 30; i++) {
+      const r = await app.inject({
+        method: 'PUT',
+        url: '/abastecimento/' + idFalso + '/foto',
+        headers: { 'x-dispositivo-id': dispositivo, authorization: 'Bearer forjado' },
+        payload,
+      })
+      ultimoStatus = r.statusCode
+    }
+    assert.notEqual(ultimoStatus, 429, 'chegou a 429 antes das 30 chamadas')
+
+    const trigesima_primeira = await app.inject({
+      method: 'PUT',
+      url: '/abastecimento/' + idFalso + '/foto',
+      headers: { 'x-dispositivo-id': dispositivo, authorization: 'Bearer forjado' },
+      payload,
+    })
+    assert.equal(trigesima_primeira.statusCode, 429, 'não bloqueou na 31ª')
+
+    // Outro dispositivo continua passando — a quota é POR dispositivo.
+    const outroAparelho = await app.inject({
+      method: 'PUT',
+      url: '/abastecimento/' + idFalso + '/foto',
+      headers: { 'x-dispositivo-id': 'outro-celular', authorization: 'Bearer forjado' },
+      payload,
+    })
+    assert.notEqual(outroAparelho.statusCode, 429, 'a quota vazou entre dispositivos')
+  })
+})
+
+describe('rate-limit por dispositivo', () => {
+  /**
+   * O bug antigo: `keyGenerator` lia `req.body.dispositivo_id`, mas o rate-limit
+   * roda no `onRequest`, antes do body ser parseado. Efeito: todos os celulares
+   * na rede da sede (mesmo NAT, mesmo IP) dividiam uma cota só, um consumia a
+   * dos outros. Agora o chaveamento vem do header `x-dispositivo-id`.
+   */
+  it('header x-dispositivo-id ganha do IP como chave', () => {
+    assert.equal(
+      chaveDeRateLimit({ 'x-dispositivo-id': 'celular-a' }, '10.0.0.1'),
+      'celular-a',
+    )
+  })
+
+  it('cai para o IP quando o header vem ausente', () => {
+    assert.equal(chaveDeRateLimit({}, '10.0.0.1'), '10.0.0.1')
+  })
+
+  it('cai para o IP quando o header vem vazio', () => {
+    assert.equal(chaveDeRateLimit({ 'x-dispositivo-id': '' }, '10.0.0.1'), '10.0.0.1')
+  })
+
+  it('dispositivos diferentes recebem chaves diferentes no mesmo IP', () => {
+    const a = chaveDeRateLimit({ 'x-dispositivo-id': 'celular-a' }, '10.0.0.1')
+    const b = chaveDeRateLimit({ 'x-dispositivo-id': 'celular-b' }, '10.0.0.1')
+    assert.notEqual(a, b, 'dois celulares no mesmo IP dividiriam cota')
+  })
+
+  it('a rota de login aceita o header sem quebrar', async () => {
+    const r = await app.inject({
+      method: 'POST',
+      url: '/auth/login-campo',
+      headers: { 'x-dispositivo-id': 'celular-teste' },
+      payload: { codigo: '1001', pin: '4731', dispositivo_id: 'disp-a', app_versao: '0.1.0' },
+    })
+    assert.equal(r.statusCode, 200)
   })
 })

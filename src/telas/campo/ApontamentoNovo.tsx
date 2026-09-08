@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
+import { mensagemDe } from '@/dados/api'
 import { ArrowLeft, Check, TriangleAlert } from 'lucide-react'
 import { db } from '@/dados/db'
 import {
@@ -76,7 +77,7 @@ export function ApontamentoNovo() {
       navegar('/apontamento/' + ficha.id, { replace: true })
     } catch (erro) {
       vibrar('erro')
-      toast.error(erro instanceof Error ? erro.message : 'Não foi possível abrir a ficha.')
+      toast.error(mensagemDe(erro, 'Não foi possível abrir a ficha.'))
       setSalvando(false)
     }
   }

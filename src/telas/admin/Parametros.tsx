@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { listarCadastro, salvarParametro } from './definicoes-cadastro'
 import { Botao } from '@/componentes/ui/Botao'
 import { formatarNumero } from '@/utilitarios/numeros'
+import { mensagemDe } from '@/dados/api'
 
 interface Parametro {
   chave: string
@@ -33,7 +34,7 @@ export function Parametros() {
       setParametros(linhas)
       setRascunhos({})
     } catch (erro) {
-      toast.error(erro instanceof Error ? erro.message : 'Falha ao carregar.')
+      toast.error(mensagemDe(erro, 'Falha ao carregar.'))
       setParametros([])
     }
   }
@@ -61,7 +62,7 @@ export function Parametros() {
       toast.success('Ajustado. Os celulares recebem no próximo sync.')
       await recarregar()
     } catch (erro) {
-      toast.error(erro instanceof Error ? erro.message : 'Não foi possível salvar.')
+      toast.error(mensagemDe(erro, 'Não foi possível salvar.'))
     } finally {
       setSalvando(null)
     }

@@ -1,5 +1,5 @@
 import { CHAVES_META, db, gravarMeta, lerMeta } from '../db'
-import { chamar } from '../api'
+import { chamar, mensagemDe } from '../api'
 
 interface ParametroBruto {
   chave: string
@@ -26,7 +26,7 @@ export async function baixarAlteracoes(): Promise<{ baixados: number; erro: stri
   try {
     resposta = await chamar<RespostaPull>('/sync/pull', { corpo: { desde: desde ?? null } })
   } catch (erro) {
-    return { baixados: 0, erro: erro instanceof Error ? erro.message : String(erro) }
+    return { baixados: 0, erro: mensagemDe(erro, 'Não consegui falar com o servidor.') }
   }
   let baixados = 0
 

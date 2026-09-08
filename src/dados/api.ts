@@ -1,3 +1,5 @@
+import { idDoDispositivo } from '@/utilitarios/dispositivo'
+
 /**
  * Endereço da API.
  *
@@ -51,6 +53,70 @@ interface SessaoArmazenada {
   expira_em: number
 }
 
+/**
+ * Códigos que o servidor devolve e como cada um deve aparecer para quem opera.
+ *
+ * A frase em português vem primeiro; o próprio código fica entre parênteses ao
+ * final para que, num pedido de socorro, o operador tenha algo copiável.
+ *
+ * Códigos não listados aqui caem no fallback "Deu problema aqui no sistema
+ * (CÓDIGO)"; mapear os que aparecem na prática é melhor que tentar cobrir tudo
+ * de uma vez e errar o tom.
+ */
+const MENSAGEM_POR_CODIGO: Record<string, string> = {
+  FALHA_INTERNA: 'Deu problema aqui no sistema. Tente de novo em alguns minutos.',
+  API_NAO_CONFIGURADA: 'Este aparelho ainda não foi configurado para o servidor.',
+  SEM_SESSAO: 'Sua sessão expirou. Entre de novo.',
+  SESSAO_INVALIDA: 'Sua sessão expirou. Entre de novo.',
+  SESSAO_REVOGADA: 'Sua sessão foi encerrada. Entre de novo.',
+  CORPO_INVALIDO: 'Faltou preencher algum campo.',
+  DADOS_AUSENTES: 'Faltou preencher algum campo.',
+  CREDENCIAL: 'Código ou PIN inválido.',
+  BLOQUEADO: 'Muitas tentativas. Espere 15 minutos ou peça ao escritório para liberar.',
+  NAO_PROVISIONADO: 'Este funcionário ainda não tem PIN. Peça ao escritório.',
+  INATIVO: 'Este funcionário está inativo. Fale com o escritório.',
+  PIN_FRACO: 'PIN muito simples. Evite sequências, repetições e anos.',
+  SEM_PERMISSAO: 'Você não tem permissão para esta ação.',
+  VERSAO_OBSOLETA: 'Atualize o aplicativo antes de continuar.',
+  ROTA_INEXISTENTE: 'Não encontrei este endereço no servidor.',
+  ARQUIVO_INEXISTENTE: 'O arquivo pedido não existe.',
+  ANEXO_INEXISTENTE: 'Esta foto não está mais disponível.',
+  ABASTECIMENTO_INEXISTENTE: 'Este abastecimento não existe mais no servidor.',
+  ARQUIVO_GRANDE: 'A foto é grande demais. Tire de novo com menos qualidade.',
+  BASE64_INVALIDO: 'A foto veio corrompida. Tire de novo.',
+  ARQUIVO_VAZIO: 'A foto veio vazia. Tire de novo.',
+  PERIODO_FECHADO: 'O escritório já fechou este período. Correções agora passam por eles.',
+  MOTIVO_OBRIGATORIO: 'Escreva o motivo antes de continuar.',
+  FECHAMENTO_NAO_ENCONTRADO: 'Não encontrei este fechamento.',
+  FUNCIONARIO_NAO_ENCONTRADO: 'Funcionário não encontrado.',
+  NAO_ENCONTRADO: 'Registro não encontrado.',
+  FAIXA_SOBREPOSTA: 'Esta faixa de numeração já é usada por outro celular.',
+  FAIXA_INVALIDA: 'A faixa precisa começar antes de terminar.',
+  DURACAO_INVALIDA: 'A duração do turno precisa ser maior que zero.',
+  VINCULO_INEXISTENTE: 'Este cadastro depende de outro que ainda não existe.',
+  JA_EXISTE: 'Já existe um registro com estes dados.',
+  CODIGO_JA_USADO: 'Já existe um funcionário com este código.',
+  CADASTRO_INVALIDO: 'Este tipo de cadastro não está disponível.',
+  NADA_A_GRAVAR: 'Nada foi alterado.',
+  CAMPOS_OBRIGATORIOS: 'Faltam campos obrigatórios.',
+  PARAMETRO_INEXISTENTE: 'Este parâmetro não existe.',
+  LOTE_GRANDE: 'Lote grande demais. O motor tenta em partes.',
+}
+
+/**
+ * Traduz um erro qualquer para uma mensagem legível pelo operador.
+ *
+ * A regra: `ErroApi` conhecido → frase em português; `ErroApi` desconhecido →
+ * frase genérica seguida do código entre parênteses (para socorro); erro
+ * comum de rede/render → a própria mensagem do JS (essas costumam ser em
+ * inglês, mas são raras e apontam a causa real).
+ */
+export function mensagemDe(erro: unknown, fallback = 'Não foi possível concluir.'): string {
+  if (erro instanceof ErroApi) return erro.mensagem
+  if (erro instanceof Error && erro.message) return erro.message
+  return fallback
+}
+
 export class ErroApi extends Error {
   status: number
   codigo: string
@@ -60,6 +126,16 @@ export class ErroApi extends Error {
     this.name = 'ErroApi'
     this.status = status
     this.codigo = codigo
+  }
+
+  /** Frase legível ao operador. Fallback com o código para pedidos de socorro. */
+  get mensagem(): string {
+    const traduzida = MENSAGEM_POR_CODIGO[this.codigo]
+    if (traduzida) return traduzida
+    if (/^FALHA_\d/.test(this.codigo)) {
+      return 'Deu problema aqui no sistema. Tente de novo em alguns minutos (' + this.codigo + ').'
+    }
+    return 'Deu problema aqui no sistema (' + this.codigo + ').'
   }
 }
 
@@ -120,7 +196,10 @@ async function renovarSessao(): Promise<string | null> {
     try {
       const resposta = await fetch(BASE + '/auth/renovar', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Dispositivo-Id': idDoDispositivo(),
+        },
         body: JSON.stringify({ refresh_token: sessao.refresh_token }),
       })
 
@@ -185,7 +264,10 @@ export async function baixarBinario(caminho: string): Promise<Blob> {
   const executar = async (token: string | null): Promise<Response> =>
     fetch(BASE + caminho, {
       method: 'GET',
-      headers: token ? { Authorization: 'Bearer ' + token } : {},
+      headers: {
+        'X-Dispositivo-Id': idDoDispositivo(),
+        ...(token ? { Authorization: 'Bearer ' + token } : {}),
+      },
     })
 
   let resposta = await executar(await tokenValido())
@@ -219,6 +301,10 @@ export async function chamar<T>(caminho: string, opcoes: OpcoesChamada = {}): Pr
         method: metodo,
         headers: {
           'Content-Type': 'application/json',
+          // Identifica o aparelho para o rate-limit do servidor. Sem este
+          // header, a cota é por IP — um comboio inteiro na rede da sede
+          // dividiria uma cota só.
+          'X-Dispositivo-Id': idDoDispositivo(),
           ...(token ? { Authorization: 'Bearer ' + token } : {}),
         },
         body: JSON.stringify(corpo ?? {}),

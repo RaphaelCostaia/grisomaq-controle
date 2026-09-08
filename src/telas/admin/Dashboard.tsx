@@ -14,7 +14,7 @@ import {
 } from 'recharts'
 import { AlertTriangle, Image as ImageIcon, CheckCircle2, CloudOff, FileWarning, PenLine } from 'lucide-react'
 import { carregarResumo, type ResumoPainel } from '@/dados/painel'
-import { baixarBinario } from '@/dados/api'
+import { baixarBinario, mensagemDe } from '@/dados/api'
 import { toast } from 'sonner'
 import { CabecalhoPainel } from '@/componentes/layout/LayoutAdmin'
 import { dataBr, duracaoCurta } from '@/utilitarios/datas'
@@ -459,7 +459,7 @@ function BotaoFoto({ anexoId }: { anexoId: string }) {
       // antes de terminar de carregar. Fica na memória até fechar a página.
     } catch (erro) {
       nova?.close()
-      toast.error(erro instanceof Error ? erro.message : 'Não foi possível baixar a foto.')
+      toast.error(mensagemDe(erro, 'Não foi possível baixar a foto.'))
     } finally {
       setAbrindo(false)
     }

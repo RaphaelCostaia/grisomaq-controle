@@ -4,6 +4,7 @@ import { Check, ChevronDown, ChevronRight, FileWarning } from 'lucide-react'
 import { carregarConflitos, resolverConflito, type Conflito } from '@/dados/painel'
 import { CabecalhoPainel } from '@/componentes/layout/LayoutAdmin'
 import { Botao } from '@/componentes/ui/Botao'
+import { mensagemDe } from '@/dados/api'
 import { dataHoraBr } from '@/utilitarios/datas'
 
 
@@ -50,7 +51,7 @@ export function Conflitos() {
     try {
       setConflitos(await carregarConflitos())
     } catch (erro) {
-      toast.error(erro instanceof Error ? erro.message : 'Falha ao carregar conflitos.')
+      toast.error(mensagemDe(erro, 'Falha ao carregar conflitos.'))
       setConflitos([])
     }
   }
@@ -62,7 +63,7 @@ export function Conflitos() {
       toast.success('Conflito marcado como resolvido.')
       await recarregar()
     } catch (erro) {
-      toast.error(erro instanceof Error ? erro.message : 'Não foi possível resolver.')
+      toast.error(mensagemDe(erro, 'Não foi possível resolver.'))
     } finally {
       setResolvendo(null)
     }

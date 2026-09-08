@@ -22,6 +22,13 @@ export async function rotasDeAnexos(app: FastifyInstance): Promise<void> {
    */
   app.put<{ Params: { id: string }; Body: { tipo?: string; dados?: string } }>(
     '/abastecimento/:id/foto',
+    {
+      // Quota específica: 30 uploads por minuto por dispositivo (chave do
+      // rate-limit vem do header `x-dispositivo-id`). Uma foto por lançamento
+      // e um lançamento a cada ~5 minutos no ritmo real; 30/min é folga para
+      // retentativa em rede ruim sem virar canal para inundação de bytes.
+      config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
+    },
     async (requisicao, resposta) => {
       const identidade = requisicao.identidade
       if (!identidade) return resposta.code(401).send({ erro: 'SEM_SESSAO' })

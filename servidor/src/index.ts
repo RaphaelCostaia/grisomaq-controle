@@ -19,6 +19,22 @@ declare module 'fastify' {
   }
 }
 
+/**
+ * Chave do rate-limit — header `x-dispositivo-id` quando presente, IP como
+ * fallback. Extraída para permitir teste unitário: o rate-limit real do
+ * `@fastify/rate-limit` depende do config lido no import do servidor, e mudar
+ * o teto durante a suíte exigiria subir um segundo processo. Testar a lógica
+ * de chaveamento aqui cobre o que interessa: o header ganha do IP.
+ */
+export function chaveDeRateLimit(
+  headers: Record<string, string | string[] | undefined>,
+  ip: string,
+): string {
+  const dispositivo = headers['x-dispositivo-id']
+  if (typeof dispositivo === 'string' && dispositivo.length > 0) return dispositivo
+  return ip
+}
+
 export async function construirServidor() {
   const app = Fastify({
     logger: ehDesenvolvimento
@@ -27,8 +43,20 @@ export async function construirServidor() {
           level: 'info',
           // O PIN e os tokens não podem chegar ao log. Num sistema em que o PIN
           // vale como assinatura, log é prova — e prova vazada é prova perdida.
+          //
+          // `refresh_token` e `pin_cifrado` entraram aqui defensivamente: nenhum
+          // log atual os expõe, mas um `req.log.info({ corpo })` que alguém
+          // adicione depois basta para vazar. Cobrimos agora que a lista é curta
+          // e mora num só lugar.
           redact: {
-            paths: ['req.headers.authorization', 'req.body.pin', 'req.body.pin_atual', 'req.body.pin_novo'],
+            paths: [
+              'req.headers.authorization',
+              'req.body.pin',
+              'req.body.pin_atual',
+              'req.body.pin_novo',
+              'req.body.pin_cifrado',
+              'req.body.refresh_token',
+            ],
             remove: true,
           },
         },
@@ -40,8 +68,8 @@ export async function construirServidor() {
 
   await app.register(cors, {
     origin: config.origens,
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['authorization', 'content-type', 'x-app-versao'],
+    methods: ['GET', 'PUT', 'POST', 'OPTIONS'],
+    allowedHeaders: ['authorization', 'content-type', 'x-app-versao', 'x-dispositivo-id'],
   })
 
   await app.register(rateLimit, {
@@ -49,8 +77,13 @@ export async function construirServidor() {
     timeWindow: '1 minute',
     // Um comboio inteiro pode sincronizar da mesma rede da sede. Sem chavear
     // por dispositivo, o primeiro celular consumiria a cota de todos.
-    keyGenerator: (requisicao) =>
-      String((requisicao.body as { dispositivo_id?: string })?.dispositivo_id ?? requisicao.ip),
+    //
+    // O chaveamento vem de um HEADER, não do corpo: `@fastify/rate-limit` roda
+    // no `onRequest`, antes de o body ser parseado, então uma leitura de
+    // `req.body.dispositivo_id` era sempre `undefined` — na prática só o IP
+    // valia. Header é lido no `onRequest` naturalmente. Fallback pro IP mantém
+    // proteção contra cliente que não manda o header.
+    keyGenerator: (requisicao) => chaveDeRateLimit(requisicao.headers, requisicao.ip),
   })
 
   /**
