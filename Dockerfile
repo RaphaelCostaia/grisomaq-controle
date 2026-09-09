@@ -52,8 +52,11 @@ RUN apk add --no-cache dumb-init
 COPY servidor/package.json servidor/package-lock.json* ./
 RUN npm ci --omit=dev --no-audit --no-fund
 
-# Código do servidor (TypeScript executado direto pelo Node 24) e migrações.
-COPY servidor/src ./src
+# Código do servidor e migrações — o layout dentro do container espelha o do
+# repositório porque `migracoes.ts` calcula o caminho da pasta de migrations
+# como `../../banco/migrations` a partir do arquivo. Achatar `servidor/src`
+# em `/app/src` faz esse relativo cair em `/banco/migrations` e o boot falha.
+COPY servidor/src ./servidor/src
 COPY banco/migrations ./banco/migrations
 
 # PWA construído do stage anterior. O servir-estatico.ts entrega estes arquivos.
@@ -72,4 +75,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
 
 USER node
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "src/index.ts"]
+CMD ["node", "servidor/src/index.ts"]
