@@ -96,6 +96,7 @@ const MENSAGEM_POR_CODIGO: Record<string, string> = {
   VINCULO_INEXISTENTE: 'Este cadastro depende de outro que ainda não existe.',
   JA_EXISTE: 'Já existe um registro com estes dados.',
   CODIGO_JA_USADO: 'Já existe um funcionário com este código.',
+  VALOR_INVALIDO: 'Este valor não está entre as opções aceitas.',
   CADASTRO_INVALIDO: 'Este tipo de cadastro não está disponível.',
   NADA_A_GRAVAR: 'Nada foi alterado.',
   CAMPOS_OBRIGATORIOS: 'Faltam campos obrigatórios.',

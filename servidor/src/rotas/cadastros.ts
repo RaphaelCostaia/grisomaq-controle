@@ -87,6 +87,11 @@ function traduzirErroDeBanco(mensagem: string): string | null {
   if (/_uk\b|duplicate key/.test(mensagem)) return 'JA_EXISTE'
   if (mensagem.includes('turnos_duracao_valida')) return 'DURACAO_INVALIDA'
   if (mensagem.includes('violates foreign key')) return 'VINCULO_INEXISTENTE'
+  // 22P02 — valor fora do enum ou impossível de converter. Sem esta tradução,
+  // o payload cru do Postgres vazava com 500 e o operador via só o fallback
+  // genérico "Deu problema aqui no sistema", em vez de saber que o valor que
+  // ele digitou não está entre os aceitos.
+  if (mensagem.includes('invalid input value for enum')) return 'VALOR_INVALIDO'
   return null
 }
 

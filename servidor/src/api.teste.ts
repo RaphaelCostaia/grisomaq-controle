@@ -680,6 +680,32 @@ describe('cadastros mestres', () => {
     assert.equal(r.statusCode, 200)
   })
 
+  // Antes desta correção, valor fora do enum vazava o 22P02 do Postgres num
+  // 500 com a mensagem crua ("invalid input value for enum ..."), que o
+  // cliente traduzia para o fallback genérico "Deu problema aqui no sistema".
+  // O escritório precisa saber que o valor digitado não está entre os aceitos.
+  it('recusa enum inválido com código traduzível, sem 500', async () => {
+    const admin = await entrar('9001', '7196')
+    const r = await app.inject({
+      method: 'POST',
+      url: '/painel/cadastros/salvar',
+      headers: comToken(admin.corpo),
+      payload: {
+        cadastro: 'turnos',
+        registro: {
+          codigo: 'X',
+          nome: 'Escala Inventada',
+          escala: '3x1',
+          hora_inicio: '06:00',
+          hora_fim: '14:00',
+          duracao_horas: 8,
+        },
+      },
+    })
+    assert.equal(r.statusCode, 409)
+    assert.equal(r.json().erro, 'VALOR_INVALIDO')
+  })
+
   it('ajusta um parâmetro de validação sem deploy', async () => {
     const admin = await entrar('9001', '7196')
     const r = await app.inject({
