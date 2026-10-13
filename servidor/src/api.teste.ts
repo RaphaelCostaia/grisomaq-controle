@@ -319,7 +319,9 @@ describe('sincronização', () => {
         tabela: 'abastecimentos',
         registro_id: registro,
         tipo: 'inserir',
-        payload: abastecimento(registro, 6901),
+        // frota diferente da anterior para não bater em intervalo mínimo —
+        // a asserção aqui é só a unicidade do número do documento.
+        payload: { ...abastecimento(registro, 6901), frota_id: ID.comboio, comboio_frota_id: null },
         base_versao: null,
       },
     ])
@@ -348,13 +350,39 @@ describe('sincronização', () => {
     assert.match(resultado.erro_mensagem ?? '', /LITROS_EXCEDEM_TANQUE/)
   })
 
+  it('recusa duas fichas da mesma frota dentro do intervalo mínimo', async () => {
+    const { corpo } = await entrar('1001', '4731')
+    try {
+      const base_mom = new Date()
+      // frota comboio (sem lançamentos prévios no seed) para isolar a asserção
+      // só no intervalo entre o par; e sem bloco (bloco_id null) para também
+      // isolar do trigger de numero_no_bloco.
+      const faz = (n: number, momento: string) => {
+        const r = crypto.randomUUID()
+        return { op_id: crypto.randomUUID(), tabela: 'abastecimentos', registro_id: r, tipo: 'inserir',
+          payload: { ...abastecimento(r, n), momento, frota_id: ID.comboio, comboio_frota_id: null, bloco_id: null }, base_versao: null }
+      }
+      const r = await push(corpo, [
+        faz(6904, base_mom.toISOString()),
+        faz(6905, new Date(base_mom.getTime() + 60_000).toISOString()),
+      ])
+      const [p, q] = r.json().resultados
+      assert.equal(p.status, 'aplicada')
+      assert.equal(q.status, 'conflito')
+      assert.match(q.erro_mensagem ?? '', /INTERVALO_MINIMO/)
+    } finally {
+      await pg.exec(`delete from public.abastecimentos where numero_documento in (6904, 6905)`)
+    }
+  })
+
   it('recusa número de documento fora da faixa do bloco alocado', async () => {
     const { corpo } = await entrar('1001', '4731')
-    // bloco seed é 6901–6950. 500 cai fora, bate o trigger.
+    // bloco seed é 6901–6950; 500 cai fora. Usar comboio pra não bater intervalo.
     const registro = crypto.randomUUID()
     const r = await push(corpo, [{
       op_id: crypto.randomUUID(), tabela: 'abastecimentos', registro_id: registro, tipo: 'inserir',
-      payload: abastecimento(registro, 500), base_versao: null,
+      payload: { ...abastecimento(registro, 500), frota_id: ID.comboio, comboio_frota_id: null },
+      base_versao: null,
     }])
     const resultado = r.json().resultados[0]
     assert.equal(resultado.status, 'conflito')
@@ -367,9 +395,11 @@ describe('sincronização', () => {
     for (const numero of casos) {
       const registro = crypto.randomUUID()
       const op_id = crypto.randomUUID()
+      // bloco_id null isola do trigger de numero_no_bloco; comboio isola do intervalo.
       const r = await push(corpo, [{
         op_id, tabela: 'abastecimentos', registro_id: registro, tipo: 'inserir',
-        payload: abastecimento(registro, numero), base_versao: null,
+        payload: { ...abastecimento(registro, numero), frota_id: ID.comboio, comboio_frota_id: null, bloco_id: null },
+        base_versao: null,
       }])
       const resultado = r.json().resultados[0]
       assert.equal(resultado.status, 'conflito', `numero_documento ${numero} deveria conflitar`)
