@@ -7,6 +7,13 @@
 -- adulterado. Pequena defesa em profundidade.
 -- =============================================================================
 
+-- NOT VALID: a regra vale para novos inserts e updates, mas o Postgres não
+-- recusa a migration por causa de linhas históricas ruins (números 0/-1/
+-- 999999999 que entraram no banco antes desta trava existir). O escritório
+-- pode limpar os anômalos e depois rodar
+--   alter table public.abastecimentos validate constraint abast_numero_documento_range;
+-- para passar a cobrar também o passado.
 alter table public.abastecimentos
   add constraint abast_numero_documento_range
-  check (numero_documento > 0 and numero_documento <= 99999999);
+  check (numero_documento > 0 and numero_documento <= 99999999)
+  not valid;
