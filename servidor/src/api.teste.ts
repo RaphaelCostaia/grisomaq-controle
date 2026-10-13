@@ -347,7 +347,8 @@ describe('sincronização', () => {
     }])
     const resultado = r.json().resultados[0]
     assert.equal(resultado.status, 'conflito')
-    assert.match(resultado.erro_mensagem ?? '', /LITROS_EXCEDEM_TANQUE/)
+    // o código vem traduzido para o cliente, não cru do Postgres
+    assert.equal(resultado.erro_codigo, 'LITROS_EXCEDEM_TANQUE')
   })
 
   it('recusa duas fichas da mesma frota dentro do intervalo mínimo', async () => {
@@ -369,7 +370,7 @@ describe('sincronização', () => {
       const [p, q] = r.json().resultados
       assert.equal(p.status, 'aplicada')
       assert.equal(q.status, 'conflito')
-      assert.match(q.erro_mensagem ?? '', /INTERVALO_MINIMO/)
+      assert.equal(q.erro_codigo, 'INTERVALO_MINIMO')
     } finally {
       await pg.exec(`delete from public.abastecimentos where numero_documento in (6904, 6905)`)
     }
@@ -386,7 +387,7 @@ describe('sincronização', () => {
     }])
     const resultado = r.json().resultados[0]
     assert.equal(resultado.status, 'conflito')
-    assert.match(resultado.erro_mensagem ?? '', /NUMERO_FORA_DO_BLOCO/)
+    assert.equal(resultado.erro_codigo, 'NUMERO_FORA_DO_BLOCO')
   })
 
   it('recusa número de documento fora do range (0, negativo, enorme)', async () => {
@@ -403,6 +404,7 @@ describe('sincronização', () => {
       }])
       const resultado = r.json().resultados[0]
       assert.equal(resultado.status, 'conflito', `numero_documento ${numero} deveria conflitar`)
+      assert.equal(resultado.erro_codigo, 'NUMERO_INVALIDO', `numero_documento ${numero} deveria mapear NUMERO_INVALIDO`)
     }
   })
 
@@ -913,7 +915,7 @@ describe('fechamento de período', () => {
     })
     const resultado = tentativa.json().resultados[0]
     assert.equal(resultado.status, 'conflito')
-    assert.match(resultado.erro_mensagem ?? '', /PERIODO_FECHADO/)
+    assert.equal(resultado.erro_codigo, 'PERIODO_FECHADO')
   })
 
   it('reabrir exige motivo escrito', async () => {
