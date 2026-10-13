@@ -348,6 +348,19 @@ describe('sincronização', () => {
     assert.match(resultado.erro_mensagem ?? '', /LITROS_EXCEDEM_TANQUE/)
   })
 
+  it('recusa número de documento fora da faixa do bloco alocado', async () => {
+    const { corpo } = await entrar('1001', '4731')
+    // bloco seed é 6901–6950. 500 cai fora, bate o trigger.
+    const registro = crypto.randomUUID()
+    const r = await push(corpo, [{
+      op_id: crypto.randomUUID(), tabela: 'abastecimentos', registro_id: registro, tipo: 'inserir',
+      payload: abastecimento(registro, 500), base_versao: null,
+    }])
+    const resultado = r.json().resultados[0]
+    assert.equal(resultado.status, 'conflito')
+    assert.match(resultado.erro_mensagem ?? '', /NUMERO_FORA_DO_BLOCO/)
+  })
+
   it('recusa número de documento fora do range (0, negativo, enorme)', async () => {
     const { corpo } = await entrar('1001', '4731')
     const casos = [0, -1, 100_000_000] // zero, negativo, 9 dígitos
