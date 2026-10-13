@@ -319,7 +319,9 @@ describe('sincronização', () => {
         tabela: 'abastecimentos',
         registro_id: registro,
         tipo: 'inserir',
-        payload: abastecimento(registro, 6901),
+        // frota diferente da anterior para não bater em intervalo mínimo —
+        // a asserção aqui é só a unicidade do número do documento.
+        payload: { ...abastecimento(registro, 6901), frota_id: ID.comboio, comboio_frota_id: null },
         base_versao: null,
       },
     ])
@@ -332,6 +334,78 @@ describe('sincronização', () => {
       `select status from public.sync_operacoes where id = '01920000-0000-7000-8000-0000000000f2'`,
     )
     assert.equal(rows[0]?.status, 'conflito')
+  })
+
+  it('recusa litros acima de capacidade x fator_capacidade_tanque', async () => {
+    const { corpo } = await entrar('1001', '4731')
+    const registro = crypto.randomUUID()
+    // tanque 650 L x fator 1.15 = 747.5 L; 800 L estoura
+    const r = await push(corpo, [{
+      op_id: crypto.randomUUID(), tabela: 'abastecimentos', registro_id: registro, tipo: 'inserir',
+      payload: { ...abastecimento(registro, 6902), registrador_inicio: 0, registrador_fim: 800, litros: 800 },
+      base_versao: null,
+    }])
+    const resultado = r.json().resultados[0]
+    assert.equal(resultado.status, 'conflito')
+    // o código vem traduzido para o cliente, não cru do Postgres
+    assert.equal(resultado.erro_codigo, 'LITROS_EXCEDEM_TANQUE')
+  })
+
+  it('recusa duas fichas da mesma frota dentro do intervalo mínimo', async () => {
+    const { corpo } = await entrar('1001', '4731')
+    try {
+      const base_mom = new Date()
+      // frota comboio (sem lançamentos prévios no seed) para isolar a asserção
+      // só no intervalo entre o par; e sem bloco (bloco_id null) para também
+      // isolar do trigger de numero_no_bloco.
+      const faz = (n: number, momento: string) => {
+        const r = crypto.randomUUID()
+        return { op_id: crypto.randomUUID(), tabela: 'abastecimentos', registro_id: r, tipo: 'inserir',
+          payload: { ...abastecimento(r, n), momento, frota_id: ID.comboio, comboio_frota_id: null, bloco_id: null }, base_versao: null }
+      }
+      const r = await push(corpo, [
+        faz(6904, base_mom.toISOString()),
+        faz(6905, new Date(base_mom.getTime() + 60_000).toISOString()),
+      ])
+      const [p, q] = r.json().resultados
+      assert.equal(p.status, 'aplicada')
+      assert.equal(q.status, 'conflito')
+      assert.equal(q.erro_codigo, 'INTERVALO_MINIMO')
+    } finally {
+      await pg.exec(`delete from public.abastecimentos where numero_documento in (6904, 6905)`)
+    }
+  })
+
+  it('recusa número de documento fora da faixa do bloco alocado', async () => {
+    const { corpo } = await entrar('1001', '4731')
+    // bloco seed é 6901–6950; 500 cai fora. Usar comboio pra não bater intervalo.
+    const registro = crypto.randomUUID()
+    const r = await push(corpo, [{
+      op_id: crypto.randomUUID(), tabela: 'abastecimentos', registro_id: registro, tipo: 'inserir',
+      payload: { ...abastecimento(registro, 500), frota_id: ID.comboio, comboio_frota_id: null },
+      base_versao: null,
+    }])
+    const resultado = r.json().resultados[0]
+    assert.equal(resultado.status, 'conflito')
+    assert.equal(resultado.erro_codigo, 'NUMERO_FORA_DO_BLOCO')
+  })
+
+  it('recusa número de documento fora do range (0, negativo, enorme)', async () => {
+    const { corpo } = await entrar('1001', '4731')
+    const casos = [0, -1, 100_000_000] // zero, negativo, 9 dígitos
+    for (const numero of casos) {
+      const registro = crypto.randomUUID()
+      const op_id = crypto.randomUUID()
+      // bloco_id null isola do trigger de numero_no_bloco; comboio isola do intervalo.
+      const r = await push(corpo, [{
+        op_id, tabela: 'abastecimentos', registro_id: registro, tipo: 'inserir',
+        payload: { ...abastecimento(registro, numero), frota_id: ID.comboio, comboio_frota_id: null, bloco_id: null },
+        base_versao: null,
+      }])
+      const resultado = r.json().resultados[0]
+      assert.equal(resultado.status, 'conflito', `numero_documento ${numero} deveria conflitar`)
+      assert.equal(resultado.erro_codigo, 'NUMERO_INVALIDO', `numero_documento ${numero} deveria mapear NUMERO_INVALIDO`)
+    }
   })
 
   it('o pull traz os mestres e só os lançamentos do próprio funcionário', async () => {
@@ -803,6 +877,45 @@ describe('fechamento de período', () => {
 
     const resultado = tentativa.json().resultados[0]
     assert.equal(resultado.status, 'conflito', 'o campo conseguiu alterar período fechado')
+  })
+
+  // A alteração já era rejeitada pelo trigger de 'travado'; o furo era o INSERT
+  // retroativo: celular offline que volta e manda lançamento com data dentro do
+  // período fechado. Antes passava como novo.
+  it('bloqueia INSERT retroativo com data dentro de um fechamento vigente', async () => {
+    const campo = await entrar('1001', '4731')
+    const registro = crypto.randomUUID()
+    const tentativa = await app.inject({
+      method: 'POST',
+      url: '/sync/push',
+      headers: comToken(campo.corpo),
+      payload: {
+        operacoes: [{
+          op_id: crypto.randomUUID(),
+          tabela: 'abastecimentos',
+          registro_id: registro,
+          tipo: 'inserir',
+          payload: {
+            id: registro,
+            numero_documento: 6949,
+            bloco_id: ID.bloco,
+            data: new Date().toISOString().slice(0, 10),
+            hora: '20:00',
+            momento: new Date().toISOString(),
+            frota_id: ID.comboio,          // isola intervalo
+            comboio_frota_id: null,
+            registrador_inicio: 10, registrador_fim: 60, litros: 50,
+            operador_funcionario_id: ID.operador,
+            criado_em_dispositivo: new Date().toISOString(),
+          },
+          base_versao: null,
+        }],
+        dispositivo_id: 'disp-a', app_versao: '0.1.0',
+      },
+    })
+    const resultado = tentativa.json().resultados[0]
+    assert.equal(resultado.status, 'conflito')
+    assert.equal(resultado.erro_codigo, 'PERIODO_FECHADO')
   })
 
   it('reabrir exige motivo escrito', async () => {
