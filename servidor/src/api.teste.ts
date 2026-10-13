@@ -334,6 +334,21 @@ describe('sincronização', () => {
     assert.equal(rows[0]?.status, 'conflito')
   })
 
+  it('recusa número de documento fora do range (0, negativo, enorme)', async () => {
+    const { corpo } = await entrar('1001', '4731')
+    const casos = [0, -1, 100_000_000] // zero, negativo, 9 dígitos
+    for (const numero of casos) {
+      const registro = crypto.randomUUID()
+      const op_id = crypto.randomUUID()
+      const r = await push(corpo, [{
+        op_id, tabela: 'abastecimentos', registro_id: registro, tipo: 'inserir',
+        payload: abastecimento(registro, numero), base_versao: null,
+      }])
+      const resultado = r.json().resultados[0]
+      assert.equal(resultado.status, 'conflito', `numero_documento ${numero} deveria conflitar`)
+    }
+  })
+
   it('o pull traz os mestres e só os lançamentos do próprio funcionário', async () => {
     const { corpo } = await entrar('1001', '4731')
     const r = await app.inject({
