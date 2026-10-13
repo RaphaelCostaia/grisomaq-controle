@@ -110,7 +110,6 @@ const MENSAGEM_POR_CODIGO: Record<string, string> = {
   REGISTRO_INEXISTENTE: 'Este registro não existe mais.',
   VERSAO_DIVERGENTE: 'Alguém alterou este registro antes. Puxe a última versão e tente de novo.',
   CAMPO_OBRIGATORIO: 'Faltou preencher algum campo obrigatório.',
-  PERIODO_FECHADO: 'O escritório já fechou este período. Correções agora passam por eles.',
   CADASTRO_INVALIDO: 'Este tipo de cadastro não está disponível.',
   NADA_A_GRAVAR: 'Nada foi alterado.',
   CAMPOS_OBRIGATORIOS: 'Faltam campos obrigatórios.',
