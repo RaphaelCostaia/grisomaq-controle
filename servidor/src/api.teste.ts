@@ -334,6 +334,20 @@ describe('sincronização', () => {
     assert.equal(rows[0]?.status, 'conflito')
   })
 
+  it('recusa litros acima de capacidade x fator_capacidade_tanque', async () => {
+    const { corpo } = await entrar('1001', '4731')
+    const registro = crypto.randomUUID()
+    // tanque 650 L x fator 1.15 = 747.5 L; 800 L estoura
+    const r = await push(corpo, [{
+      op_id: crypto.randomUUID(), tabela: 'abastecimentos', registro_id: registro, tipo: 'inserir',
+      payload: { ...abastecimento(registro, 6902), registrador_inicio: 0, registrador_fim: 800, litros: 800 },
+      base_versao: null,
+    }])
+    const resultado = r.json().resultados[0]
+    assert.equal(resultado.status, 'conflito')
+    assert.match(resultado.erro_mensagem ?? '', /LITROS_EXCEDEM_TANQUE/)
+  })
+
   it('recusa número de documento fora do range (0, negativo, enorme)', async () => {
     const { corpo } = await entrar('1001', '4731')
     const casos = [0, -1, 100_000_000] // zero, negativo, 9 dígitos
