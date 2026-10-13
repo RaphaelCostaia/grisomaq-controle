@@ -877,6 +877,45 @@ describe('fechamento de período', () => {
     assert.equal(resultado.status, 'conflito', 'o campo conseguiu alterar período fechado')
   })
 
+  // A alteração já era rejeitada pelo trigger de 'travado'; o furo era o INSERT
+  // retroativo: celular offline que volta e manda lançamento com data dentro do
+  // período fechado. Antes passava como novo.
+  it('bloqueia INSERT retroativo com data dentro de um fechamento vigente', async () => {
+    const campo = await entrar('1001', '4731')
+    const registro = crypto.randomUUID()
+    const tentativa = await app.inject({
+      method: 'POST',
+      url: '/sync/push',
+      headers: comToken(campo.corpo),
+      payload: {
+        operacoes: [{
+          op_id: crypto.randomUUID(),
+          tabela: 'abastecimentos',
+          registro_id: registro,
+          tipo: 'inserir',
+          payload: {
+            id: registro,
+            numero_documento: 6949,
+            bloco_id: ID.bloco,
+            data: new Date().toISOString().slice(0, 10),
+            hora: '20:00',
+            momento: new Date().toISOString(),
+            frota_id: ID.comboio,          // isola intervalo
+            comboio_frota_id: null,
+            registrador_inicio: 10, registrador_fim: 60, litros: 50,
+            operador_funcionario_id: ID.operador,
+            criado_em_dispositivo: new Date().toISOString(),
+          },
+          base_versao: null,
+        }],
+        dispositivo_id: 'disp-a', app_versao: '0.1.0',
+      },
+    })
+    const resultado = tentativa.json().resultados[0]
+    assert.equal(resultado.status, 'conflito')
+    assert.match(resultado.erro_mensagem ?? '', /PERIODO_FECHADO/)
+  })
+
   it('reabrir exige motivo escrito', async () => {
     const admin = await entrar('9001', '7196')
     const lista = await app.inject({
