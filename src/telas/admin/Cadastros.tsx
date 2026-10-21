@@ -41,8 +41,11 @@ export function Cadastros() {
     void recarregar()
   }, [recarregar])
 
-  // As listas de vínculo são carregadas uma vez e reaproveitadas: sem elas, o
-  // seletor de frente ou de comboio mostraria uuid em vez de nome.
+  // As listas de vínculo alimentam os seletores (Fazenda dentro de Frente,
+  // Frente dentro de Frota, etc). Recarregadas sempre que o usuário troca de
+  // aba — senão, cadastrar uma fazenda nova numa aba e abrir o formulário de
+  // frente em seguida mostraria a lista velha e a fazenda recém-criada não
+  // apareceria no dropdown.
   useEffect(() => {
     void (async () => {
       const [frentes, fazendas, frotas, funcionarios] = await Promise.all([
@@ -58,7 +61,7 @@ export function Cadastros() {
         funcionarios: funcionarios.map((f) => ({ id: f.id, rotulo: f.codigo + ' · ' + f.nome })),
       })
     })()
-  }, [])
+  }, [chave])
 
   async function salvar() {
     if (!editando) return
