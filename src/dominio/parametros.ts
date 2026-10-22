@@ -20,6 +20,7 @@ export interface Parametros {
   blocos_aviso_restante: number
   desvio_relogio_max_min: number
   minutos_tolerancia_futuro: number
+  dias_retroatividade_maxima: number
   horas_bloqueio_tela: number
 }
 
@@ -39,6 +40,7 @@ export const PARAMETROS_PADRAO: Parametros = {
   blocos_aviso_restante: 10,
   desvio_relogio_max_min: 5,
   minutos_tolerancia_futuro: 15,
+  dias_retroatividade_maxima: 7,
   horas_bloqueio_tela: 8,
 }
 

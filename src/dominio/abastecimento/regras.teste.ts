@@ -221,20 +221,9 @@ describe('registrador da bomba', () => {
 })
 
 describe('litros', () => {
-  it('exige justificativa quando os litros divergem da bomba', () => {
-    const r = validarAbastecimento(rascunho({ litros: 90 }), contexto())
-    expect(codigos(r)).toContain('LITROS_DIVERGEM')
-    expect(r.justificativasExigidas).toContain('justificativa_divergencia')
-    expect(r.podeSalvar).toBe(false)
-  })
-
-  it('libera a mesma divergência assim que o motivo é escrito', () => {
-    const r = validarAbastecimento(
-      rascunho({ litros: 90, justificativa_divergencia: 'Bomba travou; completado com balde aferido.' }),
-      contexto(),
-    )
-    expect(r.podeSalvar).toBe(true)
-  })
+  // Litros deixou de ser um campo digitavel: a tela calcula sempre `fim - inicio`
+  // e grava no rascunho via useEffect. Nao faz mais sentido validar divergencia
+  // (seria sempre zero) — a trava real continua sendo capacidade do tanque.
 
   it('bloqueia volume que não cabe no tanque da frota', () => {
     const r = validarAbastecimento(

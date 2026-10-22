@@ -121,14 +121,34 @@ export function validarAbastecimento(r: RascunhoAbastecimento, ctx: ContextoAbas
   // --- Quando ---------------------------------------------------------------
   if (!r.data || !r.hora) {
     a.push(bloqueante('MOMENTO_AUSENTE', 'hora', 'Informe a data e a hora.'))
-  } else if (minutosEntre(ctx.agora, instanteDe(r.data, r.hora)) > p.minutos_tolerancia_futuro) {
-    a.push(
-      bloqueante(
-        'MOMENTO_FUTURO',
-        'hora',
-        'A hora informada está à frente do relógio. Confira a hora deste celular.',
-      ),
-    )
+  } else {
+    const momento = instanteDe(r.data, r.hora)
+    const minutosNoFuturo = minutosEntre(ctx.agora, momento)
+    if (minutosNoFuturo > p.minutos_tolerancia_futuro) {
+      a.push(
+        bloqueante(
+          'MOMENTO_FUTURO',
+          'hora',
+          'A hora informada está à frente do relógio. Confira a hora deste celular.',
+        ),
+      )
+    } else {
+      // Retroatividade: lancamento muito antigo saiu do escopo do campo. Mais
+      // que isso o escritorio lanca manualmente, com conferencia.
+      const minutosNoPassado = -minutosNoFuturo
+      const minutosLimite = p.dias_retroatividade_maxima * 24 * 60
+      if (minutosNoPassado > minutosLimite) {
+        a.push(
+          bloqueante(
+            'DATA_MUITO_ANTIGA',
+            'data',
+            'Esta ficha é de mais de ' +
+              p.dias_retroatividade_maxima +
+              ' dias atrás. Procure o escritório para lançar manualmente.',
+          ),
+        )
+      }
+    }
   }
 
   // --- Frota ----------------------------------------------------------------
@@ -191,20 +211,10 @@ export function validarAbastecimento(r: RascunhoAbastecimento, ctx: ContextoAbas
     }
   }
 
-  const conferencia = conferirLitros(r, p)
-  if (conferencia && !conferencia.confere) {
-    a.push(
-      justificavel(
-        'LITROS_DIVERGEM',
-        'justificativa_divergencia',
-        'A bomba registrou ' +
-          formatarLitros(conferencia.daBomba) +
-          ' e você informou ' +
-          formatarLitros(r.litros) +
-          '. Explique a diferença ou corrija.',
-      ),
-    )
-  }
+  // Litros nao e mais digitado pelo operador — vem derivado de `fim - inicio`,
+  // calculado na tela. Nao faz sentido conferir "o que o operador informou" com
+  // "o que a bomba registrou": sao a mesma coisa. A trava de LITROS_ACIMA_DO_TANQUE
+  // acima segue valendo porque leitura de bomba quebrada ainda cabe aqui.
 
   // --- Leituras da maquina --------------------------------------------------
   // Campo de elevador em frota sem elevador nao e aviso: e frota errada ou

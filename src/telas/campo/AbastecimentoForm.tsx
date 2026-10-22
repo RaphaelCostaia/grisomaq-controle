@@ -3,7 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { mensagemDe } from '@/dados/api'
-import { AlertTriangle, ArrowLeft, Check, TriangleAlert } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Check, Copy, TriangleAlert } from 'lucide-react'
 import { db } from '@/dados/db'
 import {
   CHAVE_RASCUNHO_ABASTECIMENTO,
@@ -19,7 +19,7 @@ import {
   textoDeAceite,
   ultimoRegistradorDoComboio,
 } from '@/dados/repositorios/abastecimentos'
-import { conferirLitros, validarAbastecimento, type ContextoAbastecimento, type RascunhoAbastecimento } from '@/dominio/abastecimento/regras'
+import { validarAbastecimento, type ContextoAbastecimento, type RascunhoAbastecimento } from '@/dominio/abastecimento/regras'
 import type { Achado } from '@/dominio/severidade'
 import { Botao } from '@/componentes/ui/Botao'
 import { CampoLeitura, GrupoDeLeituras } from '@/componentes/ui/CampoLeitura'
@@ -30,8 +30,8 @@ import { TelaAceite } from '@/componentes/ui/TelaAceite'
 import { useSessao } from '@/autenticacao/contexto'
 import { conferirPinLocal } from '@/autenticacao/pin-local'
 import { formatarLeitura, formatarLitros } from '@/utilitarios/numeros'
-import { dataBr, dataHoraBr } from '@/utilitarios/datas'
-import { vibrar } from '@/utilitarios/dispositivo'
+import { dataHoraBr, hojeOperacional, somarDias } from '@/utilitarios/datas'
+import { idDoDispositivo, vibrar } from '@/utilitarios/dispositivo'
 import { cls } from '@/utilitarios/classes'
 
 export function AbastecimentoForm() {
@@ -99,11 +99,22 @@ export function AbastecimentoForm() {
     })
   }, [r?.comboio_frota_id, r?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Litros nao e mais digitado: sai de `fim - inicio`. O rascunho continua
+  // guardando `litros` como fonte unica (o repositorio grava rascunho.litros
+  // direto no banco), mas quem o atualiza passa a ser este efeito.
+  useEffect(() => {
+    if (!r) return
+    const i = r.registrador_inicio
+    const f = r.registrador_fim
+    if (i !== null && f !== null && f > i) {
+      const calc = Math.round((f - i) * 100) / 100
+      if (calc !== r.litros) setR({ ...r, litros: calc })
+    } else if (r.litros !== null) {
+      setR({ ...r, litros: null })
+    }
+  }, [r?.registrador_inicio, r?.registrador_fim]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const diagnostico = useMemo(() => (r && ctx ? validarAbastecimento(r, ctx) : null), [r, ctx])
-  const conferencia = useMemo(
-    () => (r && ctx ? conferirLitros(r, ctx.parametros, ctx.frota?.capacidade_tanque_litros) : null),
-    [r, ctx],
-  )
 
   if (!r || !ctx || !diagnostico) return <Carregando />
 
@@ -170,22 +181,46 @@ export function AbastecimentoForm() {
       </header>
 
       <main className="pauta flex-1 pb-4">
-        {semLugarNaTela.map((a) => (
-          <p
-            key={a.codigo}
-            role="alert"
-            className="linha-ficha flex items-start gap-2.5 bg-carbono-50 text-sm font-semibold text-carbono-700"
-          >
-            <TriangleAlert aria-hidden className="mt-0.5 size-5 shrink-0" />
-            {a.mensagem}
-          </p>
-        ))}
+        {semLugarNaTela.map((a) =>
+          a.codigo === 'BLOCO_AUSENTE' || a.codigo === 'BLOCO_ESGOTADO' ? (
+            <AlertaBloco key={a.codigo} mensagem={a.mensagem} />
+          ) : (
+            <p
+              key={a.codigo}
+              role="alert"
+              className="linha-ficha flex items-start gap-2.5 bg-carbono-50 text-sm font-semibold text-carbono-700"
+            >
+              <TriangleAlert aria-hidden className="mt-0.5 size-5 shrink-0" />
+              {a.mensagem}
+            </p>
+          ),
+        )}
 
         <div className="linha-ficha">
           <span className="rotulo-campo">Data e hora</span>
-          <span className="valor-leitura mt-1 block text-2xl">
-            {dataBr(r.data)} · {r.hora}
-          </span>
+          <div className="mt-1 flex items-center gap-2">
+            <input
+              type="date"
+              value={r.data}
+              onChange={(e) => mudar({ data: e.target.value })}
+              min={somarDias(hojeOperacional(), -ctx.parametros.dias_retroatividade_maxima)}
+              max={hojeOperacional()}
+              className="flex-1 border-2 border-[var(--cor-borda-forte)] bg-white px-3 py-2 text-2xl"
+              aria-label="Data"
+            />
+            <input
+              type="time"
+              value={r.hora}
+              onChange={(e) => mudar({ hora: e.target.value })}
+              className="w-32 border-2 border-[var(--cor-borda-forte)] bg-white px-3 py-2 text-2xl"
+              aria-label="Hora"
+            />
+          </div>
+          {(achadoDe('data') || achadoDe('hora')) && (
+            <p className="mt-1 text-sm font-semibold text-aviso-500" role="alert">
+              {achadoDe('data')?.mensagem ?? achadoDe('hora')?.mensagem}
+            </p>
+          )}
         </div>
 
         <SeletorBusca
@@ -257,29 +292,18 @@ export function AbastecimentoForm() {
             erro={achadoDe('registrador_fim')?.mensagem}
           />
 
-          <CampoLeitura
-            rotulo="Litros"
-            valor={r.litros}
-            onMudar={(v) => mudar({ litros: v })}
-            sufixo="L"
-            {...(conferencia && conferencia.daBombaCabe
-              ? {
-                  ultimaConhecida: {
-                    valor: conferencia.daBomba,
-                    texto: 'A bomba registrou ' + formatarLitros(conferencia.daBomba),
-                  },
-                }
-              : {})}
-            erro={achadoDe('litros')?.mensagem}
-          />
+          <div className="col-span-full border-t-2 border-dashed border-[var(--cor-borda)] px-4 py-3">
+            <span className="rotulo-campo">Litros (calculado)</span>
+            <span className="valor-leitura mt-1 block text-3xl">
+              {r.litros !== null ? formatarLitros(r.litros) : '—'}
+            </span>
+            {achadoDe('litros') && (
+              <p className="mt-1 text-sm font-semibold text-aviso-500" role="alert">
+                {achadoDe('litros')?.mensagem}
+              </p>
+            )}
+          </div>
         </GrupoDeLeituras>
-
-        {/* A faixa de conferência some quando os litros já estão bloqueados: um
-            "confere com a bomba" ao lado de "não cabe no tanque" diz ao operador
-            duas coisas opostas ao mesmo tempo. */}
-        {conferencia && !achadoDe('litros') && (
-          <LinhaConferencia conferencia={conferencia} litros={r.litros} />
-        )}
 
         <SeletorBusca
           rotulo="Operador que recebeu"
@@ -291,19 +315,12 @@ export function AbastecimentoForm() {
         />
 
         {/*
-          Foto do horímetro. Sempre opcional — impedir o lançamento por falta
-          de foto travaria o abastecimento no talhão com câmera quebrada ou sem
-          luz. Fica destacada em âmbar quando há divergência: é aí que a foto
-          vira prova, e o operador percebe o pedido sem precisar ler nada.
+          Foto do horímetro. Opcional — impedir o lançamento por falta de foto
+          travaria o abastecimento no talhão com câmera quebrada ou sem luz.
         */}
         <CampoFoto
           rotulo="Foto do horímetro"
-          descricao={
-            conferencia && !conferencia.confere
-              ? 'A divergência precisa de comprovação. Fotografe o horímetro.'
-              : 'Opcional. Fica arquivada com esta ficha.'
-          }
-          esperada={Boolean(conferencia && !conferencia.confere)}
+          descricao="Opcional. Fica arquivada com esta ficha."
           valor={foto}
           onMudar={setFoto}
         />
@@ -353,38 +370,41 @@ export function AbastecimentoForm() {
 }
 
 /**
- * A conta que o papel carbonado nunca fez, resolvida enquanto o operador digita.
- * Quando não bate, a tela oferece o valor da bomba com um toque — corrigir é
- * mais provável de estar certo do que justificar.
+ * Alerta especial para quando este celular ainda não tem (ou esgotou) a faixa
+ * de numeração: mostra o id do aparelho em letras grandes com botão Copiar
+ * para o operador passar ao escritório sem ter que ler código no WhatsApp.
  */
-function LinhaConferencia({
-  conferencia,
-  litros,
-}: {
-  conferencia: NonNullable<ReturnType<typeof conferirLitros>>
-  litros: number | null
-}) {
+function AlertaBloco({ mensagem }: { mensagem: string }) {
+  const id = idDoDispositivo()
+  async function copiar() {
+    try {
+      await navigator.clipboard.writeText(id)
+      toast.success('Id deste celular copiado.')
+    } catch {
+      toast.error('Não consegui copiar. Leia o número ao escritório.')
+    }
+  }
   return (
     <div
-      className={cls(
-        'linha-ficha flex items-center gap-2.5',
-        conferencia.confere ? 'bg-ok-100' : 'bg-aviso-100',
-      )}
-      aria-live="polite"
+      role="alert"
+      className="linha-ficha flex flex-col gap-3 bg-aviso-100 text-sm font-semibold text-carbono-700"
     >
-      {conferencia.confere ? (
-        <Check aria-hidden className="size-5 shrink-0 text-ok-500" />
-      ) : (
-        <TriangleAlert aria-hidden className="size-5 shrink-0 text-aviso-500" />
-      )}
-      <span className="text-sm font-bold">
-        {conferencia.confere
-          ? 'Confere com a bomba: ' + formatarLitros(conferencia.daBomba)
-          : 'A bomba registrou ' +
-            formatarLitros(conferencia.daBomba) +
-            ' e você informou ' +
-            formatarLitros(litros)}
-      </span>
+      <div className="flex items-start gap-2.5">
+        <TriangleAlert aria-hidden className="mt-0.5 size-5 shrink-0 text-aviso-500" />
+        <span className="flex-1">{mensagem}</span>
+      </div>
+      <div className="border-2 border-[var(--cor-borda-forte)] bg-white px-3 py-2">
+        <span className="rotulo-campo">ID deste celular</span>
+        <div className="mt-1 flex items-center gap-2">
+          <span className="flex-1 font-mono text-lg break-all">{id}</span>
+          <Botao variante="secundaria" onClick={copiar} icone={<Copy aria-hidden className="size-5" />}>
+            Copiar
+          </Botao>
+        </div>
+      </div>
+      <p className="text-xs font-semibold text-carbono-700">
+        Mostre este ID ao escritório para que ele registre o bloco em Cadastros → Blocos de numeração.
+      </p>
     </div>
   )
 }
@@ -456,6 +476,8 @@ function BlocoAchado({
 
 /** Campos que desenham o próprio erro logo abaixo de si. */
 const CAMPOS_COM_ERRO_PROPRIO = new Set([
+  'data',
+  'hora',
   'frota_id',
   'horimetro_motor',
   'horimetro_elevador',
