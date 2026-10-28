@@ -263,10 +263,9 @@ describe('leituras da máquina', () => {
 })
 
 describe('assinatura e hora', () => {
-  it('bloqueia lançamento sem o aceite do operador', () => {
-    const r = validarAbastecimento(rascunho({ operador_funcionario_id: null }), contexto())
-    expect(codigos(r)).toContain('SEM_ASSINATURA')
-  })
+  // A assinatura hoje é o PIN do comboista logado — o campo
+  // `operador_funcionario_id` é preenchido pelo app a partir da sessão, não
+  // por seletor. Validar "sem assinatura" aqui não cabe mais.
 
   it('bloqueia hora à frente do relógio do servidor', () => {
     const r = validarAbastecimento(rascunho({ hora: '16:00' }), contexto())

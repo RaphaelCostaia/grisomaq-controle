@@ -58,7 +58,6 @@ export function comeceiAPreencher(r: {
   odometro: number | null
   registrador_fim: number | null
   litros: number | null
-  operador_funcionario_id: string | null
 }): boolean {
   return (
     r.frota_id !== null ||
@@ -66,7 +65,6 @@ export function comeceiAPreencher(r: {
     r.horimetro_elevador !== null ||
     r.odometro !== null ||
     r.registrador_fim !== null ||
-    r.litros !== null ||
-    r.operador_funcionario_id !== null
+    r.litros !== null
   )
 }

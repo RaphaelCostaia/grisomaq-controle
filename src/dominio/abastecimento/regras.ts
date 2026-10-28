@@ -250,16 +250,9 @@ export function validarAbastecimento(r: RascunhoAbastecimento, ctx: ContextoAbas
     }
   }
 
-  // --- Assinatura -----------------------------------------------------------
-  if (!r.operador_funcionario_id) {
-    a.push(
-      bloqueante(
-        'SEM_ASSINATURA',
-        'operador_funcionario_id',
-        'O operador que recebeu o diesel precisa confirmar com o PIN.',
-      ),
-    )
-  }
+  // Assinatura: o comboista logado assina com o próprio PIN; o campo
+  // `operador_funcionario_id` é preenchido automaticamente a partir da sessão
+  // no rascunho — não há mais seletor de "operador que recebeu".
 
   return diagnosticar(a, {
     justificativas: {

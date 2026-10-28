@@ -45,7 +45,6 @@ export function AbastecimentoForm() {
   const [foto, setFoto] = useState<Blob | null>(null)
 
   const frotas = useLiveQuery(() => db.mestre_frotas.filter((f) => f.ativo).toArray(), [], [])
-  const funcionarios = useLiveQuery(() => db.mestre_funcionarios.filter((f) => f.ativo).toArray(), [], [])
 
   // Retoma o que estava sendo preenchido antes de a tela reiniciar. Sem isto,
   // um recarregamento manda o operador de volta à máquina para reler horímetro
@@ -61,14 +60,17 @@ export function AbastecimentoForm() {
     void (async () => {
       const guardado = await recuperarRascunho<RascunhoAbastecimento>(CHAVE_RASCUNHO_ABASTECIMENTO)
       if (guardado) {
-        setR(guardado)
+        // Operador que assina = quem está logado agora. Se o rascunho veio de
+        // uma sessão anterior, o id salvo não deve virar signatário desta
+        // ficha — a assinatura segue quem está no celular neste momento.
+        setR({ ...guardado, operador_funcionario_id: sessao.funcionario_id })
         // A foto do rascunho vive na tabela foto_pendentes: se o operador
         // fotografou e depois recarregou a tela, a imagem volta com ele.
         setFoto(await fotoDoAbastecimento(guardado.id))
         toast.info('Retomando a ficha que você estava preenchendo.')
         return
       }
-      setR(await novoRascunho())
+      setR(await novoRascunho(sessao))
     })()
   }, [])
 
@@ -135,15 +137,6 @@ export function AbastecimentoForm() {
     titulo: f.descricao,
     ...(f.capacidade_tanque_litros ? { detalhe: 'Tanque ' + formatarLitros(f.capacidade_tanque_litros) } : {}),
   }))
-
-  const opcoesOperador: OpcaoSeletor[] = funcionarios.map((f) => ({
-    id: f.id,
-    chave: f.codigo,
-    titulo: f.nome,
-    ...(f.funcao ? { detalhe: f.funcao } : {}),
-  }))
-
-  const operador = funcionarios.find((f) => f.id === r.operador_funcionario_id) ?? null
 
   async function salvar(pinDoAceite: string) {
     if (!r || !diagnostico?.podeSalvar) return
@@ -305,15 +298,6 @@ export function AbastecimentoForm() {
           </div>
         </GrupoDeLeituras>
 
-        <SeletorBusca
-          rotulo="Operador que recebeu"
-          opcoes={opcoesOperador}
-          valor={r.operador_funcionario_id}
-          onEscolher={(id) => mudar({ operador_funcionario_id: id })}
-          placeholder="Escolher"
-          erro={achadoDe('operador_funcionario_id')?.mensagem}
-        />
-
         {/*
           Foto do horímetro. Opcional — impedir o lançamento por falta de foto
           travaria o abastecimento no talhão com câmera quebrada ou sem luz.
@@ -349,9 +333,9 @@ export function AbastecimentoForm() {
         </Botao>
       </div>
 
-      {assinando && operador && (
+      {assinando && (
         <TelaAceite
-          nome={operador.nome}
+          nome={sessao.nome}
           textoAceite={textoDeAceite({
             litros: r.litros ?? 0,
             numero_documento: r.numero_documento ?? 0,
@@ -359,7 +343,7 @@ export function AbastecimentoForm() {
             hora: r.hora,
           })}
           onConfirmar={async (pin) => {
-            await conferirPinLocal(r!.operador_funcionario_id!, pin)
+            await conferirPinLocal(sessao.funcionario_id, pin)
             await salvar(pin)
           }}
           onCancelar={() => setAssinando(false)}
@@ -485,7 +469,6 @@ const CAMPOS_COM_ERRO_PROPRIO = new Set([
   'registrador_inicio',
   'registrador_fim',
   'litros',
-  'operador_funcionario_id',
 ])
 
 function ultimaDe(ctx: ContextoAbastecimento, tipo: 'horimetro_motor' | 'horimetro_elevador' | 'odometro') {

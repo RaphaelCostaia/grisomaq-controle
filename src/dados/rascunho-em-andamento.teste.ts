@@ -16,7 +16,6 @@ const vazio: {
   odometro: number | null
   registrador_fim: number | null
   litros: number | null
-  operador_funcionario_id: string | null
 } = {
   frota_id: null,
   horimetro_motor: null,
@@ -24,7 +23,6 @@ const vazio: {
   odometro: null,
   registrador_fim: null,
   litros: null,
-  operador_funcionario_id: null,
 }
 
 describe('rascunho em andamento', () => {
@@ -68,7 +66,7 @@ describe('começou a preencher', () => {
     expect(comeceiAPreencher({ ...vazio, frota_id: 'f1' })).toBe(true)
     expect(comeceiAPreencher({ ...vazio, litros: 10 })).toBe(true)
     expect(comeceiAPreencher({ ...vazio, registrador_fim: 40280 })).toBe(true)
-    expect(comeceiAPreencher({ ...vazio, operador_funcionario_id: 'p1' })).toBe(true)
+    expect(comeceiAPreencher({ ...vazio, odometro: 15200 })).toBe(true)
   })
 
   // Zero é valor digitado, não ausência: um horímetro zerado é justamente o

@@ -10,8 +10,15 @@ import { idDoDispositivo, versaoDoApp } from '@/utilitarios/dispositivo'
 import { hojeOperacional, horaDe, instanteDe } from '@/utilitarios/datas'
 import type { SessaoCampo } from '@/autenticacao/login'
 
-/** Rascunho em branco, já com o que o app consegue preencher sozinho. */
-export async function novoRascunho(): Promise<RascunhoAbastecimento> {
+/**
+ * Rascunho em branco, já com o que o app consegue preencher sozinho.
+ *
+ * `operador_funcionario_id` vem da sessão: o comboista é quem assina a ficha
+ * — não há mais seletor "operador que recebeu" na tela. Só há 3 comboistas
+ * em campo, cada um usa o próprio celular com o próprio PIN, e a trilha de
+ * assinatura é esse PIN.
+ */
+export async function novoRascunho(sessao: SessaoCampo): Promise<RascunhoAbastecimento> {
   const bloco = await blocoDoDispositivo()
   const agora = new Date()
 
@@ -28,7 +35,7 @@ export async function novoRascunho(): Promise<RascunhoAbastecimento> {
     registrador_inicio: null,
     registrador_fim: null,
     litros: null,
-    operador_funcionario_id: null,
+    operador_funcionario_id: sessao.funcionario_id,
     justificativa_leitura: null,
     justificativa_divergencia: null,
     avisos_confirmados: [],
