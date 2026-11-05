@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { NavLink, useParams } from 'react-router'
 import { toast } from 'sonner'
-import { Plus, X } from 'lucide-react'
+import { Plus, Search, X } from 'lucide-react'
 import {
   CADASTROS,
   MOTIVO_DA_RECUSA,
@@ -26,6 +26,13 @@ export function Cadastros() {
   const [editando, setEditando] = useState<Registro | null>(null)
   const [salvando, setSalvando] = useState(false)
   const [referencias, setReferencias] = useState<Record<string, Array<{ id: string; rotulo: string }>>>({})
+  const [filtro, setFiltro] = useState('')
+
+  // Trocar de aba deve zerar a busca — senão "col" filtrava colhedoras em Frotas
+  // e, ao clicar em Frentes, ficava vazia só porque nenhuma frente tem "col".
+  useEffect(() => {
+    setFiltro('')
+  }, [chave])
 
   const recarregar = useCallback(async () => {
     setRegistros(null)
@@ -86,6 +93,18 @@ export function Cadastros() {
   // navegação porque é lá que o escritório procura, mas o corpo é outro.
   const ehParametros = chave === 'parametros'
 
+  // Filtro bate no que o olho vê (uuid vira nome, true vira "Sim"), sem acento
+  // e sem distinguir maiúsculas — "aroeira" encontra "AROEIRA", "174" encontra
+  // a frota 174. Memoiza para a lista não re-filtrar a cada tecla no modal.
+  const registrosFiltrados = useMemo(() => {
+    if (!registros) return null
+    const b = normalizar(filtro.trim())
+    if (!b) return registros
+    return registros.filter((r) =>
+      colunas.some((c) => normalizar(exibir(r[c.nome], c, referencias)).includes(b)),
+    )
+  }, [registros, filtro, colunas, referencias])
+
   return (
     <>
       <CabecalhoPainel
@@ -133,17 +152,35 @@ export function Cadastros() {
         <Parametros />
       ) : (
       <div className="p-8">
-        <div className="mb-4 flex justify-end">
+        <div className="mb-4 flex items-center gap-3">
+          <div className="relative flex-1 max-w-sm">
+            <Search
+              aria-hidden
+              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[var(--cor-texto-suave)]"
+            />
+            <input
+              type="search"
+              value={filtro}
+              onChange={(e) => setFiltro(e.target.value)}
+              placeholder={'Buscar ' + definicao.titulo.toLowerCase() + '…'}
+              className="w-full border-2 border-[var(--cor-borda-forte)] bg-white py-2 pr-3 pl-9 text-sm outline-none focus:border-marca-600"
+              aria-label={'Buscar em ' + definicao.titulo}
+            />
+          </div>
           <Botao onClick={() => setEditando(valorInicial(definicao.campos))} icone={<Plus aria-hidden className="size-4" />}>
             Novo
           </Botao>
         </div>
 
-        {registros === null ? (
+        {registrosFiltrados === null ? (
           <p className="text-sm text-[var(--cor-texto-suave)]">Carregando…</p>
-        ) : registros.length === 0 ? (
+        ) : registros && registros.length === 0 ? (
           <p className="border-2 border-[var(--cor-borda)] bg-[var(--cor-fundo)] px-4 py-4 text-sm text-[var(--cor-texto-suave)]">
             Nada cadastrado ainda. Enquanto estiver vazio, os seletores do app de campo abrem sem opção.
+          </p>
+        ) : registrosFiltrados.length === 0 ? (
+          <p className="border-2 border-[var(--cor-borda)] bg-[var(--cor-fundo)] px-4 py-4 text-sm text-[var(--cor-texto-suave)]">
+            Nenhum registro casa com "<span className="font-semibold">{filtro}</span>".
           </p>
         ) : (
           <table className="w-full border-2 border-[var(--cor-borda-forte)] bg-[var(--cor-fundo)] text-sm">
@@ -161,7 +198,7 @@ export function Cadastros() {
               </tr>
             </thead>
             <tbody>
-              {registros.map((r) => (
+              {registrosFiltrados.map((r) => (
                 <tr
                   key={String(r.id)}
                   className={cls('border-b border-[var(--cor-borda)]', r.ativo === false && 'opacity-50')}
@@ -233,6 +270,11 @@ function valorInicial(campos: Campo[]): Registro {
     if (c.tipo === 'booleano') registro[c.nome] = c.nome === 'ativo'
   }
   return registro
+}
+
+/** Minúsculas e sem acento, para comparação de busca. */
+function normalizar(s: string): string {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 }
 
 function exibir(
