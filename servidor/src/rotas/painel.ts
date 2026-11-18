@@ -35,8 +35,17 @@ export async function rotasDoPainel(app: FastifyInstance): Promise<void> {
     const dias = Math.min(Math.max(Number(corpo?.dias ?? 30), 1), 180)
 
     return comoFuncionario(identidade, async (cliente) => {
-      const [caminhoes, abastecimento, apontamento, dispositivos, conflitos, assinaturas, fichasDivergentes] =
-        await Promise.all([
+      const [
+        caminhoes,
+        abastecimento,
+        apontamento,
+        dispositivos,
+        conflitos,
+        assinaturas,
+        fichasDivergentes,
+        registradorDivergente,
+        semFoto,
+      ] = await Promise.all([
           cliente.query(
             `select data, ciclos_concluidos, ciclos_abertos, permanencia_media_min, permanencia_p90_min
                from public.vw_kpi_caminhoes_dia
@@ -94,6 +103,25 @@ export async function rotasDoPainel(app: FastifyInstance): Promise<void> {
               limit 20`,
             [dias],
           ),
+          // Número digitado que não bate com o que a IA leu na foto da
+          // registradora: o caso que a foto existe para pegar.
+          cliente.query(
+            `select abastecimento_id, numero_documento, data, hora, papel,
+                    valor_digitado, valor_lido, confianca, anexo_id, frota_numero, comboista_nome
+               from public.vw_registrador_foto_divergente
+              where data >= current_date - $1::integer
+              order by data desc, numero_documento desc
+              limit 20`,
+            [dias],
+          ),
+          cliente.query(
+            `select count(*)::int as total
+               from public.abastecimentos
+              where data >= current_date - $1::integer
+                and not excluido
+                and justificativa_sem_foto is not null`,
+            [dias],
+          ),
         ])
 
       return {
@@ -105,6 +133,8 @@ export async function rotasDoPainel(app: FastifyInstance): Promise<void> {
         conflitos_pendentes: conflitos.rows[0]?.total ?? 0,
         assinaturas: assinaturas.rows[0] ?? { total: 0, invalidas: 0 },
         fichas_divergentes: fichasDivergentes.rows,
+        registrador_divergente: registradorDivergente.rows,
+        fichas_sem_foto_registrador: semFoto.rows[0]?.total ?? 0,
       }
     })
   })

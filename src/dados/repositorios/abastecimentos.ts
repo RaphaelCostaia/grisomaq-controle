@@ -38,6 +38,9 @@ export async function novoRascunho(sessao: SessaoCampo): Promise<RascunhoAbastec
     operador_funcionario_id: sessao.funcionario_id,
     justificativa_leitura: null,
     justificativa_divergencia: null,
+    justificativa_sem_foto: null,
+    foto_registrador_inicio: false,
+    foto_registrador_fim: false,
     avisos_confirmados: [],
   }
 }
@@ -171,6 +174,12 @@ export async function salvarAbastecimento(
     abastecedor_funcionario_id: sessao.funcionario_id,
     justificativa_leitura: rascunho.justificativa_leitura,
     justificativa_divergencia: rascunho.justificativa_divergencia,
+    // Só vale quando faltou foto: se o comboista escreveu o motivo e depois
+    // conseguiu fotografar, o texto antigo não deve ir junto.
+    justificativa_sem_foto:
+      rascunho.foto_registrador_inicio && rascunho.foto_registrador_fim
+        ? null
+        : rascunho.justificativa_sem_foto,
     observacao: null,
     status: 'finalizado',
     avisos_confirmados: rascunho.avisos_confirmados,

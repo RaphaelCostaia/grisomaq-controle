@@ -12,7 +12,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { AlertTriangle, Image as ImageIcon, CheckCircle2, CloudOff, FileWarning, PenLine } from 'lucide-react'
+import { AlertTriangle, Camera, Image as ImageIcon, CheckCircle2, CloudOff, FileWarning, PenLine } from 'lucide-react'
 import { carregarResumo, type ResumoPainel } from '@/dados/painel'
 import { baixarBinario, mensagemDe } from '@/dados/api'
 import { toast } from 'sonner'
@@ -71,6 +71,8 @@ export function Dashboard() {
     () => (resumo?.abastecimento ?? []).reduce((s, l) => s + Number(l.lancamentos_divergentes ?? 0), 0),
     [resumo],
   )
+  const registradorDivergente = resumo?.registrador_divergente ?? []
+  const semFotoRegistrador = resumo?.fichas_sem_foto_registrador ?? 0
 
   if (erro) {
     return (
@@ -103,7 +105,7 @@ export function Dashboard() {
           <h2 className="mb-3 text-[0.6875rem] font-bold tracking-[0.18em] text-[var(--cor-texto-suave)] uppercase">
             Precisa de atenção
           </h2>
-          <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 xl:grid-cols-5">
             <Indicador
               rotulo="Lançamentos travados"
               valor={resumo.conflitos_pendentes}
@@ -142,6 +144,17 @@ export function Dashboard() {
               detalhe="Litros não batem com a bomba"
               severidade={fichasDivergentes > 0 ? 'atencao' : 'ok'}
               Icone={AlertTriangle}
+            />
+            <Indicador
+              rotulo="Bomba × foto"
+              valor={registradorDivergente.length}
+              detalhe={
+                semFotoRegistrador > 0
+                  ? contar(semFotoRegistrador, 'ficha sem foto', 'fichas sem foto')
+                  : 'Digitado confere com a foto'
+              }
+              severidade={registradorDivergente.length > 0 || semFotoRegistrador > 0 ? 'atencao' : 'ok'}
+              Icone={Camera}
             />
           </div>
         </section>
@@ -295,6 +308,48 @@ export function Dashboard() {
                       </Td>
                     </tr>
                   </Fragment>
+                ))}
+              </tbody>
+            </table>
+          </Painel>
+        )}
+
+        {registradorDivergente.length > 0 && (
+          <Painel
+            titulo="Registradora: número digitado não confere com a foto"
+            descricao="A leitura automática da foto da bomba deu outro número. Abra a foto e confira qual está certo."
+          >
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b-2 border-[var(--cor-borda-forte)] text-left">
+                  <Th>Data</Th>
+                  <Th>Ficha</Th>
+                  <Th>Frota</Th>
+                  <Th>Leitura</Th>
+                  <Th className="text-right">Digitado</Th>
+                  <Th className="text-right">Na foto</Th>
+                  <Th>Comboista</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {registradorDivergente.map((d) => (
+                  <tr key={d.abastecimento_id + d.papel} className="border-b border-[var(--cor-borda-fina)]">
+                    <Td className="whitespace-nowrap">{dataBr(d.data)} · {String(d.hora).slice(0, 5)}</Td>
+                    <Td className="font-mono font-bold text-[var(--carmim)]">{d.numero_documento}</Td>
+                    <Td>{d.frota_numero ?? '—'}</Td>
+                    <Td>{d.papel === 'registrador_inicio' ? 'Início' : 'Fim'}</Td>
+                    <Td className="numerico text-right">{formatarNumero(Number(d.valor_digitado), 1)}</Td>
+                    <Td className="numerico text-right font-bold text-aviso-500">
+                      {formatarNumero(Number(d.valor_lido), 1)}
+                      {d.confianca === 'baixa' && (
+                        <span className="ml-1 text-xs font-semibold text-[var(--cor-texto-suave)]">(foto duvidosa)</span>
+                      )}
+                    </Td>
+                    <Td className="text-[var(--cor-texto-suave)]">
+                      <span className="mr-2">{d.comboista_nome ?? '—'}</span>
+                      <BotaoFoto anexoId={d.anexo_id} />
+                    </Td>
+                  </tr>
                 ))}
               </tbody>
             </table>

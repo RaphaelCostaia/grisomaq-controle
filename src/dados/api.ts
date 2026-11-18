@@ -115,6 +115,8 @@ const MENSAGEM_POR_CODIGO: Record<string, string> = {
   CAMPOS_OBRIGATORIOS: 'Faltam campos obrigatórios.',
   PARAMETRO_INEXISTENTE: 'Este parâmetro não existe.',
   LOTE_GRANDE: 'Lote grande demais. O motor tenta em partes.',
+  LEITURA_INDISPONIVEL: 'A leitura automática da foto não está disponível.',
+  PAPEL_INVALIDO: 'Tipo de foto não reconhecido.',
 }
 
 /**

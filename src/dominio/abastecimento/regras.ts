@@ -21,6 +21,10 @@ export interface RascunhoAbastecimento {
   operador_funcionario_id: string | null
   justificativa_leitura: string | null
   justificativa_divergencia: string | null
+  justificativa_sem_foto: string | null
+  /** Se o comboista já fotografou a registradora no início e no fim. */
+  foto_registrador_inicio: boolean
+  foto_registrador_fim: boolean
   avisos_confirmados: string[]
 }
 
@@ -254,10 +258,30 @@ export function validarAbastecimento(r: RascunhoAbastecimento, ctx: ContextoAbas
   // `operador_funcionario_id` é preenchido automaticamente a partir da sessão
   // no rascunho — não há mais seletor de "operador que recebeu".
 
+  // --- Fotos da registradora ------------------------------------------------
+  // A foto é a prova do número da bomba. Falta dela não bloqueia (câmera
+  // quebrada não pode parar o abastecimento), mas exige o motivo por escrito.
+  if (!r.foto_registrador_inicio || !r.foto_registrador_fim) {
+    const falta =
+      !r.foto_registrador_inicio && !r.foto_registrador_fim
+        ? 'no início e no fim'
+        : !r.foto_registrador_inicio
+          ? 'no início'
+          : 'no fim'
+    a.push(
+      justificavel(
+        'FOTO_REGISTRADOR_AUSENTE',
+        'justificativa_sem_foto',
+        'Falta a foto da registradora ' + falta + '. Fotografe ou explique por que não foi possível.',
+      ),
+    )
+  }
+
   return diagnosticar(a, {
     justificativas: {
       justificativa_divergencia: r.justificativa_divergencia,
       justificativa_leitura: r.justificativa_leitura,
+      justificativa_sem_foto: r.justificativa_sem_foto,
     },
     avisosConfirmados: r.avisos_confirmados,
   })

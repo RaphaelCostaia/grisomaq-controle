@@ -133,6 +133,21 @@ export class BaseGrisomaq extends Dexie {
     this.version(3).stores({
       foto_pendentes: '&id, abastecimento_id, proxima_tentativa_em',
     })
+
+    // Fotos da registradora da bomba (início e fim) convivem com a do
+    // horímetro na mesma ficha, e as de rascunho esperam a ficha ser salva.
+    // Fotos antigas na fila são do horímetro e já estavam prontas para subir.
+    this.version(4)
+      .stores({ foto_pendentes: '&id, abastecimento_id, proxima_tentativa_em' })
+      .upgrade((tx) =>
+        tx
+          .table('foto_pendentes')
+          .toCollection()
+          .modify((f: { papel?: string; rascunho?: boolean }) => {
+            f.papel ??= 'horimetro'
+            f.rascunho ??= false
+          }),
+      )
   }
 }
 

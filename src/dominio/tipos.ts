@@ -199,6 +199,8 @@ export interface Abastecimento extends RodapeAuditoria, MarcaLocal {
   abastecedor_funcionario_id: string | null
   justificativa_leitura: string | null
   justificativa_divergencia: string | null
+  /** Por que faltou foto da registradora (câmera quebrada, sem luz). */
+  justificativa_sem_foto?: string | null
   observacao: string | null
   status: StatusDocumento
   avisos_confirmados: string[] | null

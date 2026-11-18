@@ -66,6 +66,9 @@ function rascunho(sobrescreve: Partial<RascunhoAbastecimento> = {}): RascunhoAba
     operador_funcionario_id: 'func-1',
     justificativa_leitura: null,
     justificativa_divergencia: null,
+    justificativa_sem_foto: null,
+    foto_registrador_inicio: true,
+    foto_registrador_fim: true,
     avisos_confirmados: [],
     ...sobrescreve,
   }
@@ -259,6 +262,32 @@ describe('leituras da máquina', () => {
     const semElevador = { ...frotaColhedora, tem_horimetro_elevador: false }
     const r = validarAbastecimento(rascunho({ horimetro_elevador: 900 }), contexto({ frota: semElevador }))
     expect(codigos(r)).toContain('SEM_ELEVADOR')
+  })
+})
+
+describe('fotos da registradora', () => {
+  it('sem as duas fotos, exige o motivo por escrito', () => {
+    const r = validarAbastecimento(rascunho({ foto_registrador_fim: false }), contexto())
+    expect(codigos(r)).toContain('FOTO_REGISTRADOR_AUSENTE')
+    expect(r.justificativasExigidas).toContain('justificativa_sem_foto')
+    expect(r.podeSalvar).toBe(false)
+  })
+
+  it('com o motivo escrito, salva mesmo sem foto', () => {
+    const r = validarAbastecimento(
+      rascunho({
+        foto_registrador_inicio: false,
+        foto_registrador_fim: false,
+        justificativa_sem_foto: 'Câmera do celular quebrada.',
+      }),
+      contexto(),
+    )
+    expect(r.podeSalvar).toBe(true)
+  })
+
+  it('com as duas fotos, não pede nada', () => {
+    const r = validarAbastecimento(rascunho(), contexto())
+    expect(codigos(r)).not.toContain('FOTO_REGISTRADOR_AUSENTE')
   })
 })
 

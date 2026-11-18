@@ -975,6 +975,136 @@ describe('saúde', () => {
   })
 })
 
+describe('leitura da registradora por foto', () => {
+  type Modulo = typeof import('./leitura-registrador.ts')
+  let leitura: Modulo
+  const fichaId = '01920000-0000-7000-8000-0000000000c1'
+  const jpeg = (marca: number) =>
+    Buffer.from([0xff, 0xd8, 0xff, 0xe0, marca, 0x00, 0xff, 0xd9]).toString('base64')
+
+  before(async () => {
+    leitura = await import('./leitura-registrador.ts')
+    // Ficha de três dias atrás, longe dos fechamentos e do intervalo mínimo
+    // que os outros testes exercitam com lançamentos de hoje.
+    await pg.exec(`
+      insert into public.abastecimentos
+        (id, numero_documento, data, hora, momento, frota_id, registrador_inicio, registrador_fim, litros,
+         operador_funcionario_id, criado_por, criado_em_dispositivo, dispositivo_id, app_versao)
+      values ('${fichaId}', 8801, current_date - 3, '03:00', (current_date - 3) + time '03:00',
+              '${ID.comboio}', 214911.4, 215083.4, 172.0,
+              '${ID.operador}', '${ID.operador}', now(), 'disp-a', '0.1.0');
+    `)
+  })
+
+  after(() => leitura.definirLeitorParaTeste(null))
+
+  it('converte o totalizador em litros com uma casa decimal', () => {
+    assert.equal(leitura.totalParaLitros('2149114'), 214911.4)
+    assert.equal(leitura.totalParaLitros('2150834'), 215083.4)
+    assert.equal(leitura.totalParaLitros('12'), null)
+    assert.equal(leitura.totalParaLitros(''), null)
+  })
+
+  it('exige sessão', async () => {
+    const r = await app.inject({
+      method: 'POST',
+      url: '/abastecimento/ler-registrador',
+      payload: { dados: jpeg(1) },
+    })
+    assert.equal(r.statusCode, 401)
+  })
+
+  it('sem chave da API, avisa que a leitura está indisponível', async () => {
+    leitura.definirLeitorParaTeste(null)
+    const { corpo } = await entrar('1001', '4731')
+    const r = await app.inject({
+      method: 'POST',
+      url: '/abastecimento/ler-registrador',
+      headers: comToken(corpo),
+      payload: { dados: jpeg(2) },
+    })
+    assert.equal(r.statusCode, 503)
+    assert.equal(r.json().erro, 'LEITURA_INDISPONIVEL')
+  })
+
+  it('devolve o número lido na foto', async () => {
+    leitura.definirLeitorParaTeste(async () => ({ valor: 214911.4, confianca: 'alta', motivo: null }))
+    const { corpo } = await entrar('1001', '4731')
+    const r = await app.inject({
+      method: 'POST',
+      url: '/abastecimento/ler-registrador',
+      headers: comToken(corpo),
+      payload: { dados: jpeg(3) },
+    })
+    assert.equal(r.statusCode, 200)
+    assert.equal(r.json().valor, 214911.4)
+  })
+
+  it('recusa papel de foto desconhecido', async () => {
+    const { corpo } = await entrar('1001', '4731')
+    const r = await app.inject({
+      method: 'PUT',
+      url: '/abastecimento/' + fichaId + '/foto',
+      headers: comToken(corpo),
+      payload: { dados: jpeg(4), papel: 'selfie' },
+    })
+    assert.equal(r.statusCode, 400)
+    assert.equal(r.json().erro, 'PAPEL_INVALIDO')
+  })
+
+  /**
+   * O caso que a foto existe para pegar: o comboista digitou um número (sem
+   * sinal, ou corrigiu à mão) e a foto mostra outro. O escritório precisa ver.
+   */
+  it('lê a foto no upload e acusa no painel quando o digitado não confere', async () => {
+    leitura.definirLeitorParaTeste(async () => ({ valor: 215000.0, confianca: 'media', motivo: null }))
+    const { corpo } = await entrar('1001', '4731')
+    const r = await app.inject({
+      method: 'PUT',
+      url: '/abastecimento/' + fichaId + '/foto',
+      headers: comToken(corpo),
+      payload: { dados: jpeg(5), papel: 'registrador_fim' },
+    })
+    assert.equal(r.statusCode, 200)
+
+    const { rows } = await pg.query<{ papel: string; leitura_ia: string }>(
+      `select papel, leitura_ia from public.anexos where registro_id = '${fichaId}'`,
+    )
+    assert.equal(rows[0]?.papel, 'registrador_fim')
+    assert.equal(Number(rows[0]?.leitura_ia), 215000.0)
+
+    const admin = await entrar('9001', '7196')
+    const resumo = await app.inject({
+      method: 'POST',
+      url: '/painel/resumo',
+      headers: comToken(admin.corpo),
+      payload: { dias: 30 },
+    })
+    const divergentes = resumo.json().registrador_divergente as Array<Record<string, unknown>>
+    const desta = divergentes.find((d) => d.abastecimento_id === fichaId)
+    assert.ok(desta, 'a divergência entre digitado e foto não apareceu no painel')
+    assert.equal(Number(desta.valor_digitado), 215083.4)
+    assert.equal(Number(desta.valor_lido), 215000.0)
+  })
+
+  it('não acusa quando a foto confere com o digitado', async () => {
+    leitura.definirLeitorParaTeste(async () => ({ valor: 214911.4, confianca: 'alta', motivo: null }))
+    const { corpo } = await entrar('1001', '4731')
+    await app.inject({
+      method: 'PUT',
+      url: '/abastecimento/' + fichaId + '/foto',
+      headers: comToken(corpo),
+      payload: { dados: jpeg(6), papel: 'registrador_inicio' },
+    })
+
+    const { rows } = await pg.query<{ n: number }>(
+      `select count(*)::int as n from public.vw_registrador_foto_divergente
+        where abastecimento_id = '${fichaId}' and papel = 'registrador_inicio'`,
+    )
+    assert.equal(rows[0]?.n, 0)
+  })
+})
+
 describe('quota específica do upload de foto', () => {
   /**
    * O rate-limit local do PUT /abastecimento/:id/foto vale 30/min por

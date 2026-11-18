@@ -53,6 +53,23 @@ export interface ResumoPainel {
   conflitos_pendentes: number
   assinaturas: { total: number; invalidas: number }
   fichas_divergentes: FichaDivergente[]
+  registrador_divergente: RegistradorDivergente[]
+  fichas_sem_foto_registrador: number
+}
+
+/** Número da bomba digitado que não bate com o que a IA leu na foto. */
+export interface RegistradorDivergente {
+  abastecimento_id: string
+  numero_documento: number
+  data: string
+  hora: string
+  papel: 'registrador_inicio' | 'registrador_fim'
+  valor_digitado: number | string
+  valor_lido: number | string
+  confianca: string | null
+  anexo_id: string
+  frota_numero: string | null
+  comboista_nome: string | null
 }
 
 export interface FichaDivergente {

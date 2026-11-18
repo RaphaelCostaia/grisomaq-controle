@@ -11,6 +11,10 @@ interface Props {
   /** Estado visual: pinta a borda de âmbar quando o preenchimento é esperado
    *  (por exemplo, quando há divergência de litros e uma foto ajudaria). */
   esperada?: boolean
+  /** Prévia baixa, para fotos que convivem com outras na mesma ficha. */
+  previaCompacta?: boolean
+  /** Linha extra abaixo da foto (o estado da leitura automática, por exemplo). */
+  rodape?: React.ReactNode
 }
 
 /**
@@ -25,7 +29,7 @@ interface Props {
  * câmera é de 3-5 MB e afogaria a fila em campo. 1600 px no lado maior é
  * mais que suficiente para ler um horímetro.
  */
-export function CampoFoto({ rotulo, descricao, valor, onMudar, esperada }: Props) {
+export function CampoFoto({ rotulo, descricao, valor, onMudar, esperada, previaCompacta, rodape }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [processando, setProcessando] = useState(false)
   const [urlPreview, setUrlPreview] = useState<string | null>(null)
@@ -89,7 +93,11 @@ export function CampoFoto({ rotulo, descricao, valor, onMudar, esperada }: Props
             className="block w-full overflow-hidden rounded border border-[var(--cor-borda)]"
             aria-label="Refazer foto"
           >
-            <img src={urlPreview} alt="Foto do horímetro" className="block h-auto w-full" />
+            <img
+              src={urlPreview}
+              alt={rotulo}
+              className={previaCompacta ? 'block max-h-44 w-full object-contain' : 'block h-auto w-full'}
+            />
           </button>
           <p className="mt-2 text-xs text-[var(--cor-texto-suave)]">
             Toque na foto para refazer.
@@ -106,6 +114,8 @@ export function CampoFoto({ rotulo, descricao, valor, onMudar, esperada }: Props
           {processando ? 'Preparando…' : 'Tirar foto'}
         </Botao>
       )}
+
+      {rodape}
 
       <input
         ref={inputRef}

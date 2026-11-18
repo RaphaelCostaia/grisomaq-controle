@@ -58,6 +58,8 @@ export function comeceiAPreencher(r: {
   odometro: number | null
   registrador_fim: number | null
   litros: number | null
+  foto_registrador_inicio?: boolean
+  foto_registrador_fim?: boolean
 }): boolean {
   return (
     r.frota_id !== null ||
@@ -65,6 +67,10 @@ export function comeceiAPreencher(r: {
     r.horimetro_elevador !== null ||
     r.odometro !== null ||
     r.registrador_fim !== null ||
-    r.litros !== null
+    r.litros !== null ||
+    // Foto tirada conta como começar: sem isto, quem fotografa a registradora
+    // e recarrega a tela antes de digitar perderia o vínculo com a foto.
+    r.foto_registrador_inicio === true ||
+    r.foto_registrador_fim === true
   )
 }

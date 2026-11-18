@@ -25,7 +25,14 @@ import { Botao } from '@/componentes/ui/Botao'
 import { CampoLeitura, GrupoDeLeituras } from '@/componentes/ui/CampoLeitura'
 import { SeletorBusca, type OpcaoSeletor } from '@/componentes/ui/SeletorBusca'
 import { CampoFoto } from '@/componentes/ui/CampoFoto'
-import { enfileirarFoto, fotoDoAbastecimento } from '@/dados/fotos'
+import {
+  confirmarFotosDoRascunho,
+  enfileirarFoto,
+  fotoDoAbastecimento,
+  lerRegistradorNaFoto,
+  removerFoto,
+  type PapelFoto,
+} from '@/dados/fotos'
 import { TelaAceite } from '@/componentes/ui/TelaAceite'
 import { useSessao } from '@/autenticacao/contexto'
 import { conferirPinLocal } from '@/autenticacao/pin-local'
@@ -43,6 +50,10 @@ export function AbastecimentoForm() {
   const [salvando, setSalvando] = useState(false)
   const [assinando, setAssinando] = useState(false)
   const [foto, setFoto] = useState<Blob | null>(null)
+  const [fotoInicio, setFotoInicio] = useState<Blob | null>(null)
+  const [fotoFim, setFotoFim] = useState<Blob | null>(null)
+  const [leituraInicio, setLeituraInicio] = useState<EstadoLeitura | null>(null)
+  const [leituraFim, setLeituraFim] = useState<EstadoLeitura | null>(null)
 
   const frotas = useLiveQuery(() => db.mestre_frotas.filter((f) => f.ativo).toArray(), [], [])
 
@@ -60,13 +71,26 @@ export function AbastecimentoForm() {
     void (async () => {
       const guardado = await recuperarRascunho<RascunhoAbastecimento>(CHAVE_RASCUNHO_ABASTECIMENTO)
       if (guardado) {
+        // As fotos do rascunho vivem na tabela foto_pendentes: se o operador
+        // fotografou e depois recarregou a tela, as imagens voltam com ele.
+        const [horimetro, inicio, fim] = await Promise.all([
+          fotoDoAbastecimento(guardado.id, 'horimetro'),
+          fotoDoAbastecimento(guardado.id, 'registrador_inicio'),
+          fotoDoAbastecimento(guardado.id, 'registrador_fim'),
+        ])
         // Operador que assina = quem está logado agora. Se o rascunho veio de
         // uma sessão anterior, o id salvo não deve virar signatário desta
         // ficha — a assinatura segue quem está no celular neste momento.
-        setR({ ...guardado, operador_funcionario_id: sessao.funcionario_id })
-        // A foto do rascunho vive na tabela foto_pendentes: se o operador
-        // fotografou e depois recarregou a tela, a imagem volta com ele.
-        setFoto(await fotoDoAbastecimento(guardado.id))
+        setR({
+          ...guardado,
+          operador_funcionario_id: sessao.funcionario_id,
+          justificativa_sem_foto: guardado.justificativa_sem_foto ?? null,
+          foto_registrador_inicio: inicio !== null,
+          foto_registrador_fim: fim !== null,
+        })
+        setFoto(horimetro)
+        setFotoInicio(inicio)
+        setFotoFim(fim)
         toast.info('Retomando a ficha que você estava preenchendo.')
         return
       }
@@ -138,12 +162,73 @@ export function AbastecimentoForm() {
     ...(f.capacidade_tanque_litros ? { detalhe: 'Tanque ' + formatarLitros(f.capacidade_tanque_litros) } : {}),
   }))
 
+  const fichaId = r.id
+
+  /** Foto do horímetro: guardada como rascunho já na captura. */
+  async function trocarFotoHorimetro(blob: Blob | null) {
+    setFoto(blob)
+    if (blob) await enfileirarFoto(fichaId, blob, 'horimetro', { rascunho: true })
+    else await removerFoto(fichaId, 'horimetro')
+  }
+
+  /**
+   * Foto da registradora. Fica guardada no celular de qualquer jeito (é a
+   * prova); com sinal, o servidor lê o totalizador e o número entra no campo
+   * para o comboista só conferir. Sem sinal ou leitura ruim, ele digita.
+   */
+  async function trocarFotoRegistrador(qual: 'inicio' | 'fim', blob: Blob | null) {
+    const papel: PapelFoto = qual === 'inicio' ? 'registrador_inicio' : 'registrador_fim'
+    const definirFoto = qual === 'inicio' ? setFotoInicio : setFotoFim
+    const definirLeitura = qual === 'inicio' ? setLeituraInicio : setLeituraFim
+    const marcarFoto = (tem: boolean) =>
+      setR((atual) =>
+        atual ? { ...atual, [qual === 'inicio' ? 'foto_registrador_inicio' : 'foto_registrador_fim']: tem } : atual,
+      )
+
+    definirFoto(blob)
+    if (!blob) {
+      definirLeitura(null)
+      marcarFoto(false)
+      await removerFoto(fichaId, papel)
+      return
+    }
+
+    await enfileirarFoto(fichaId, blob, papel, { rascunho: true })
+    marcarFoto(true)
+
+    if (!navigator.onLine) {
+      definirLeitura({ tipo: 'digite', texto: 'Sem sinal: digite o número da registradora. A foto fica guardada.' })
+      return
+    }
+
+    definirLeitura({ tipo: 'lendo', texto: 'Lendo o número na foto…' })
+    try {
+      const leitura = await lerRegistradorNaFoto(blob)
+      if (leitura.valor === null) {
+        definirLeitura({ tipo: 'digite', texto: (leitura.motivo ?? 'Não consegui ler a foto.') + ' Digite o número.' })
+        return
+      }
+      const valor = leitura.valor
+      setR((atual) =>
+        atual ? { ...atual, [qual === 'inicio' ? 'registrador_inicio' : 'registrador_fim']: valor } : atual,
+      )
+      definirLeitura(
+        leitura.confianca === 'baixa'
+          ? { tipo: 'duvida', texto: 'Lido da foto: ' + formatarLeitura(valor) + '. A foto deixou dúvida: confira com atenção.' }
+          : { tipo: 'lido', texto: 'Lido da foto: ' + formatarLeitura(valor) + '. Confira com a registradora.' },
+      )
+    } catch (erro) {
+      definirLeitura({ tipo: 'digite', texto: mensagemDe(erro, 'Não consegui ler a foto.') + ' Digite o número.' })
+    }
+  }
+
   async function salvar(pinDoAceite: string) {
     if (!r || !diagnostico?.podeSalvar) return
     setSalvando(true)
     try {
       await salvarAbastecimento(r, sessao, pinDoAceite)
-      if (foto) await enfileirarFoto(r.id, foto)
+      // As fotos já estão no celular desde a captura; salvar a ficha libera o envio.
+      await confirmarFotosDoRascunho(r.id)
       await descartarRascunho(CHAVE_RASCUNHO_ABASTECIMENTO)
       toast.success('Salvo no celular. Será enviado quando houver sinal.')
       navegar('/abastecimento')
@@ -256,6 +341,16 @@ export function AbastecimentoForm() {
             erro={achadoDe('odometro')?.mensagem}
           />
 
+          <CampoFoto
+            rotulo="Foto da registradora — início"
+            descricao="Antes de abastecer. Enquadre o contador TOTAL."
+            valor={fotoInicio}
+            onMudar={(b) => void trocarFotoRegistrador('inicio', b)}
+            esperada
+            previaCompacta
+            rodape={leituraInicio && <LinhaLeitura estado={leituraInicio} />}
+          />
+
           <CampoLeitura
             rotulo="Início reg. (bomba)"
             valor={r.registrador_inicio}
@@ -276,6 +371,16 @@ export function AbastecimentoForm() {
                 }
               : {})}
             erro={achadoDe('registrador_inicio')?.mensagem}
+          />
+
+          <CampoFoto
+            rotulo="Foto da registradora — fim"
+            descricao="Depois de abastecer. Enquadre o contador TOTAL."
+            valor={fotoFim}
+            onMudar={(b) => void trocarFotoRegistrador('fim', b)}
+            esperada
+            previaCompacta
+            rodape={leituraFim && <LinhaLeitura estado={leituraFim} />}
           />
 
           <CampoLeitura
@@ -306,7 +411,7 @@ export function AbastecimentoForm() {
           rotulo="Foto do horímetro"
           descricao="Opcional. Fica arquivada com esta ficha."
           valor={foto}
-          onMudar={setFoto}
+          onMudar={(b) => void trocarFotoHorimetro(b)}
         />
 
         {diagnostico.achados
@@ -393,6 +498,26 @@ function AlertaBloco({ mensagem }: { mensagem: string }) {
   )
 }
 
+interface EstadoLeitura {
+  tipo: 'lendo' | 'lido' | 'duvida' | 'digite'
+  texto: string
+}
+
+/** O que a leitura automática achou da foto, logo abaixo dela. */
+function LinhaLeitura({ estado }: { estado: EstadoLeitura }) {
+  const cor =
+    estado.tipo === 'lido'
+      ? 'bg-ok-100 text-[var(--cor-texto)]'
+      : estado.tipo === 'lendo'
+        ? 'bg-carbono-50 text-[var(--cor-texto-suave)]'
+        : 'bg-aviso-100 text-[var(--cor-texto)]'
+  return (
+    <p role="status" aria-live="polite" className={cls('mt-3 px-3 py-2 text-sm font-semibold', cor)}>
+      {estado.texto}
+    </p>
+  )
+}
+
 /** Aviso a confirmar ou justificativa a escrever, na própria pauta da ficha. */
 function BlocoAchado({
   achado,
@@ -406,7 +531,7 @@ function BlocoAchado({
   confirmado: boolean
 }) {
   const ehJustificativa = achado.severidade === 'justificavel'
-  const campo = achado.campo as 'justificativa_divergencia' | 'justificativa_leitura'
+  const campo = achado.campo as 'justificativa_divergencia' | 'justificativa_leitura' | 'justificativa_sem_foto'
 
   return (
     <div className={cls('linha-ficha', ehJustificativa ? 'bg-carbono-50' : 'bg-aviso-100')}>

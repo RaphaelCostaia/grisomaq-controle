@@ -43,6 +43,12 @@ export const config = {
   /** Chave privada RSA (PKCS8, base64) da revalidação de assinaturas. */
   chavePrivadaAssinatura: process.env.CHAVE_PRIVADA_ASSINATURA ?? '',
 
+  /**
+   * Chave da API da Anthropic, para ler a registradora da bomba pela foto.
+   * Opcional: sem ela a leitura fica indisponível e o comboista digita o número.
+   */
+  anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? '',
+
   /** Origens liberadas no CORS, separadas por vírgula. */
   origens: opcional('ORIGENS_PERMITIDAS', 'http://localhost:5180')
     .split(',')
