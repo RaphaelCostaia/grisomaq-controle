@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { conferirLitros, validarAbastecimento, type ContextoAbastecimento, type RascunhoAbastecimento } from './regras'
 import { PARAMETROS_PADRAO } from '@/dominio/parametros'
 import type { BlocoAbastecimento, Frota } from '@/dominio/tipos'
-import { dataBr, hojeOperacional, instanteDe } from '@/utilitarios/datas'
+import { dataBr, hojeOperacional, instanteDe, somarDias } from '@/utilitarios/datas'
 
 // O "agora" dos testes e ancorado no dia operacional, e nao no relogio da
 // maquina que roda a suite: com hora fixa no rascunho, o teste passaria de
@@ -262,6 +262,18 @@ describe('leituras da máquina', () => {
     const semElevador = { ...frotaColhedora, tem_horimetro_elevador: false }
     const r = validarAbastecimento(rascunho({ horimetro_elevador: 900 }), contexto({ frota: semElevador }))
     expect(codigos(r)).toContain('SEM_ELEVADOR')
+  })
+})
+
+describe('retroatividade', () => {
+  it('aceita ficha de exatamente 7 dias atrás, qualquer que seja a hora', () => {
+    const r = validarAbastecimento(rascunho({ data: somarDias(HOJE, -7), hora: '06:00' }), contexto())
+    expect(codigos(r)).not.toContain('DATA_MUITO_ANTIGA')
+  })
+
+  it('recusa ficha de 8 dias atrás', () => {
+    const r = validarAbastecimento(rascunho({ data: somarDias(HOJE, -8), hora: '23:00' }), contexto())
+    expect(codigos(r)).toContain('DATA_MUITO_ANTIGA')
   })
 })
 

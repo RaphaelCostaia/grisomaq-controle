@@ -975,6 +975,69 @@ describe('saúde', () => {
   })
 })
 
+describe('janela de retroatividade do abastecimento', () => {
+  const diasAtras = (n: number) => {
+    const d = new Date()
+    d.setUTCDate(d.getUTCDate() - n)
+    return d.toISOString().slice(0, 10)
+  }
+
+  const enviar = async (numero: number, dias: number) => {
+    const { corpo } = await entrar('1001', '4731')
+    const registro = crypto.randomUUID()
+    const data = diasAtras(dias)
+    const r = await app.inject({
+      method: 'POST',
+      url: '/sync/push',
+      headers: comToken(corpo),
+      payload: {
+        dispositivo_id: 'disp-a',
+        app_versao: '0.1.0',
+        operacoes: [
+          {
+            op_id: crypto.randomUUID(),
+            tabela: 'abastecimentos',
+            registro_id: registro,
+            tipo: 'inserir',
+            base_versao: null,
+            payload: {
+              id: registro,
+              numero_documento: numero,
+              bloco_id: ID.bloco,
+              data,
+              hora: '05:00',
+              momento: data + 'T08:00:00.000Z',
+              frota_id: ID.frota,
+              comboio_frota_id: ID.comboio,
+              registrador_inicio: 50000,
+              registrador_fim: 50040,
+              litros: 40,
+              operador_funcionario_id: ID.operador,
+              criado_em_dispositivo: new Date().toISOString(),
+            },
+          },
+        ],
+      },
+    })
+    return r.json().resultados[0] as { status: string; erro_codigo?: string }
+  }
+
+  /**
+   * A tela deixa lançar até 7 dias atrás. Antes, o banco só aceitava hoje e
+   * ontem e a ficha de 3 dias atrás ia parar em conflitos.
+   */
+  it('aceita ficha de 3 dias atrás', async () => {
+    const resultado = await enviar(6945, 3)
+    assert.equal(resultado.status, 'aplicada', JSON.stringify(resultado))
+  })
+
+  it('recusa ficha de 9 dias atrás', async () => {
+    const resultado = await enviar(6946, 9)
+    assert.notEqual(resultado.status, 'aplicada')
+    assert.equal(resultado.erro_codigo, 'DATA_FORA_PERIODO')
+  })
+})
+
 describe('leitura da registradora por foto', () => {
   type Modulo = typeof import('./leitura-registrador.ts')
   let leitura: Modulo

@@ -106,7 +106,7 @@ const MENSAGEM_POR_CODIGO: Record<string, string> = {
   LEITURA_INVERTIDA: 'A leitura final tem que ser maior que a inicial.',
   LITROS_INVALIDOS: 'A quantidade de litros precisa ser positiva.',
   DIVERGENCIA_SEM_JUSTIFICATIVA: 'Os litros digitados não batem com a bomba. Justifique antes de salvar.',
-  DATA_FORA_PERIODO: 'A data deste lançamento está fora do dia atual. Confira o relógio do aparelho.',
+  DATA_FORA_PERIODO: 'A data deste lançamento está fora do período aceito pelo celular. Confira a data e o relógio do aparelho.',
   REGISTRO_INEXISTENTE: 'Este registro não existe mais.',
   VERSAO_DIVERGENTE: 'Alguém alterou este registro antes. Puxe a última versão e tente de novo.',
   CAMPO_OBRIGATORIO: 'Faltou preencher algum campo obrigatório.',

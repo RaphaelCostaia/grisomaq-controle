@@ -2,7 +2,7 @@ import type { BlocoAbastecimento, Frota, UltimaLeitura } from '@/dominio/tipos'
 import type { Parametros } from '@/dominio/parametros'
 import { type Achado, aviso, bloqueante, diagnosticar, justificavel, type Diagnostico } from '@/dominio/severidade'
 import { formatarLeitura, formatarLitros } from '@/utilitarios/numeros'
-import { dataHoraBr, instanteDe, minutosEntre } from '@/utilitarios/datas'
+import { dataHoraBr, dataOperacional, instanteDe, minutosEntre, somarDias } from '@/utilitarios/datas'
 
 /** O que a tela preencheu, ainda cru (numeros ja convertidos de virgula). */
 export interface RascunhoAbastecimento {
@@ -138,10 +138,12 @@ export function validarAbastecimento(r: RascunhoAbastecimento, ctx: ContextoAbas
       )
     } else {
       // Retroatividade: lancamento muito antigo saiu do escopo do campo. Mais
-      // que isso o escritorio lanca manualmente, com conferencia.
-      const minutosNoPassado = -minutosNoFuturo
-      const minutosLimite = p.dias_retroatividade_maxima * 24 * 60
-      if (minutosNoPassado > minutosLimite) {
+      // que isso o escritorio lanca manualmente, com conferencia. A conta e por
+      // DATA, nao por horas: e a mesma regua da RLS do banco
+      // (data >= current_date - N), senao a ficha de exatamente N dias atras
+      // passaria aqui e seria recusada no servidor, ou o contrario.
+      const dataMinima = somarDias(dataOperacional(ctx.agora), -p.dias_retroatividade_maxima)
+      if (r.data < dataMinima) {
         a.push(
           bloqueante(
             'DATA_MUITO_ANTIGA',
