@@ -20,9 +20,18 @@ export type Leitor = (imagemBase64: string, tipoMime: 'image/jpeg' | 'image/png'
 
 const MODELO = 'claude-haiku-5-5'
 
+/**
+ * Rolos do contador TOTAL nas bombas dos comboios. A leitura com outra
+ * quantidade é descartada (o comboista digita): no primeiro teste com foto
+ * real, a IA devolveu 8 dígitos para um contador de 7, juntando o número
+ * cortado que aparece embaixo do último rolo. Número errado no campo é pior
+ * que campo vazio.
+ */
+const ROLOS_DO_TOTAL = 7
+
 const Resposta = z.object({
   legivel: z.boolean(),
-  total_digitos: z.string(),
+  rolos: z.array(z.string()),
   confianca: z.enum(['alta', 'media', 'baixa']),
   motivo: z.string().nullable(),
 })
@@ -30,11 +39,12 @@ const Resposta = z.object({
 const INSTRUCAO = `A foto mostra a registradora (medidor) de uma bomba de diesel de caminhão comboio.
 Ela tem dois contadores:
 - LITROS: o visor grande de cima, com a quantidade do abastecimento atual. IGNORE este.
-- TOTAL: o contador pequeno de baixo, com rolos numerados. É ESTE que você deve ler.
+- TOTAL: o contador pequeno de baixo, com ${ROLOS_DO_TOTAL} rolos numerados lado a lado. É ESTE que você deve ler.
 
-Leia todos os rolos do contador TOTAL, da esquerda para a direita, e devolva só os dígitos em "total_digitos", sem pontos nem vírgulas (exemplo: "2149114").
+Leia o contador TOTAL rolo por rolo, da esquerda para a direita, e devolva em "rolos" uma lista com um item por rolo, cada item com UM único dígito (exemplo: ["2","1","4","9","1","1","4"]).
+Cada rolo mostra um dígito grande no centro da janela. Os números pequenos e cortados que aparecem acima ou abaixo desse dígito são parte do giro do mesmo rolo: NÃO são rolos extras e NÃO devem entrar na lista.
 Se um rolo estiver girando entre dois números, use o número que ocupa a maior parte da janela e marque a confiança como "baixa".
-Se o contador TOTAL não aparecer, estiver cortado, desfocado, com reflexo forte ou ilegível, devolva legivel=false, total_digitos vazio e explique o motivo em uma frase curta em português.
+Se o contador TOTAL não aparecer, estiver cortado, desfocado, com reflexo forte ou ilegível, devolva legivel=false, rolos vazio e explique o motivo em uma frase curta em português.
 Confiança: "alta" quando todos os rolos estão nítidos; "media" quando algum exige atenção; "baixa" quando há dúvida em algum dígito.`
 
 let cliente: Anthropic | null = null
@@ -49,11 +59,14 @@ export function leituraDisponivel(): boolean {
   return leitorDeTeste !== null || config.anthropicApiKey !== ''
 }
 
-/** "2149114" → 214911.4. Qualquer coisa fora de 5 a 9 dígitos é leitura ruim. */
-export function totalParaLitros(digitos: string): number | null {
-  const limpo = digitos.replace(/\D/g, '')
-  if (limpo.length < 5 || limpo.length > 9) return null
-  return Number(limpo) / 10
+/**
+ * ["2","1","4","9","1","1","4"] → 214911.4. Rolo com mais de um dígito, sem
+ * dígito ou quantidade de rolos diferente do contador é leitura ruim.
+ */
+export function totalParaLitros(rolos: string[]): number | null {
+  if (rolos.length !== ROLOS_DO_TOTAL) return null
+  if (!rolos.every((rolo) => /^\d$/.test(rolo.trim()))) return null
+  return Number(rolos.map((rolo) => rolo.trim()).join('')) / 10
 }
 
 export const lerRegistrador: Leitor = async (imagemBase64, tipoMime) => {
@@ -86,9 +99,9 @@ export const lerRegistrador: Leitor = async (imagemBase64, tipoMime) => {
       return { valor: null, confianca: 'baixa', motivo: saida?.motivo ?? 'Não foi possível ler a registradora.' }
     }
 
-    const valor = totalParaLitros(saida.total_digitos)
+    const valor = totalParaLitros(saida.rolos)
     if (valor === null) {
-      return { valor: null, confianca: 'baixa', motivo: 'O número lido não tem o formato do totalizador.' }
+      return { valor: null, confianca: 'baixa', motivo: 'Não consegui ler todos os rolos do contador TOTAL.' }
     }
     return { valor, confianca: saida.confianca, motivo: null }
   } catch (erro) {

@@ -1062,10 +1062,12 @@ describe('leitura da registradora por foto', () => {
   after(() => leitura.definirLeitorParaTeste(null))
 
   it('converte o totalizador em litros com uma casa decimal', () => {
-    assert.equal(leitura.totalParaLitros('2149114'), 214911.4)
-    assert.equal(leitura.totalParaLitros('2150834'), 215083.4)
-    assert.equal(leitura.totalParaLitros('12'), null)
-    assert.equal(leitura.totalParaLitros(''), null)
+    assert.equal(leitura.totalParaLitros([...'2149114']), 214911.4)
+    assert.equal(leitura.totalParaLitros([...'2150834']), 215083.4)
+    assert.equal(leitura.totalParaLitros([]), null)
+    // Primeiro teste real: o número cortado embaixo do último rolo virou um 8º dígito.
+    assert.equal(leitura.totalParaLitros([...'21508344']), null)
+    assert.equal(leitura.totalParaLitros(['2', '1', '5', '0', '8', '34', '']), null)
   })
 
   it('exige sessão', async () => {
